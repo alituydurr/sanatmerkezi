@@ -1,0 +1,97 @@
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Request interceptor - add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor - handle errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth API
+export const authAPI = {
+  login: (email, password) => api.post('/auth/login', { email, password }),
+  getCurrentUser: () => api.get('/auth/me')
+};
+
+// Students API
+export const studentsAPI = {
+  getAll: () => api.get('/students'),
+  getById: (id) => api.get(`/students/${id}`),
+  create: (data) => api.post('/students', data),
+  update: (id, data) => api.put(`/students/${id}`, data),
+  delete: (id) => api.delete(`/students/${id}`),
+  enrollInCourse: (studentId, courseId) => api.post('/students/enroll', { studentId, courseId }),
+  removeFromCourse: (studentId, courseId) => api.delete(`/students/${studentId}/courses/${courseId}`)
+};
+
+// Teachers API
+export const teachersAPI = {
+  getAll: () => api.get('/teachers'),
+  getById: (id) => api.get(`/teachers/${id}`),
+  create: (data) => api.post('/teachers', data),
+  update: (id, data) => api.put(`/teachers/${id}`, data),
+  delete: (id) => api.delete(`/teachers/${id}`),
+  assignToCourse: (teacherId, courseId) => api.post('/teachers/assign', { teacherId, courseId }),
+  removeFromCourse: (teacherId, courseId) => api.delete(`/teachers/${teacherId}/courses/${courseId}`)
+};
+
+// Courses API
+export const coursesAPI = {
+  getAll: () => api.get('/courses'),
+  getById: (id) => api.get(`/courses/${id}`),
+  create: (data) => api.post('/courses', data),
+  update: (id, data) => api.put(`/courses/${id}`, data),
+  delete: (id) => api.delete(`/courses/${id}`)
+};
+
+// Schedules API
+export const schedulesAPI = {
+  getAll: () => api.get('/schedules'),
+  getById: (id) => api.get(`/schedules/${id}`),
+  create: (data) => api.post('/schedules', data),
+  update: (id, data) => api.put(`/schedules/${id}`, data),
+  delete: (id) => api.delete(`/schedules/${id}`)
+};
+
+// Payments API
+export const paymentsAPI = {
+  getAllPlans: () => api.get('/payments/plans'),
+  getPlanById: (id) => api.get(`/payments/plans/${id}`),
+  createPlan: (data) => api.post('/payments/plans', data),
+  updatePlan: (id, data) => api.put(`/payments/plans/${id}`, data),
+  recordPayment: (data) => api.post('/payments/record', data),
+  getByStudent: (studentId) => api.get(`/payments/student/${studentId}`),
+  getPending: () => api.get('/payments/pending')
+};
+
+export default api;

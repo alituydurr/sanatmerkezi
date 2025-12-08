@@ -1,0 +1,220 @@
+.dashboard {
+  animation: fadeIn var(--transition-base);
+}
+
+.dashboard-header {
+  margin-bottom: var(--space-8);
+}
+
+.dashboard-title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.dashboard-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-10);
+}
+
+.dashboard-card {
+  background: white;
+  border-radius: var(--radius-2xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  opacity: 0.8;
+}
+
+.card-gradient-1::before {
+  background: var(--gradient-primary);
+}
+
+.card-gradient-2::before {
+  background: var(--gradient-secondary);
+}
+
+.card-gradient-3::before {
+  background: var(--gradient-accent);
+}
+
+.card-gradient-4::before {
+  background: var(--gradient-rainbow);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-2xl);
+}
+
+.card-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-4);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.card-content {
+  position: relative;
+  z-index: 1;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.card-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-6);
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+}
+
+.list-item:hover {
+  background: var(--border-medium);
+  transform: translateX(4px);
+}
+
+.item-time {
+  font-weight: 700;
+  color: var(--primary-600);
+}
+
+.item-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.item-amount {
+  font-weight: 700;
+  color: var(--accent-500);
+}
+
+.stat-display {
+  text-align: center;
+  padding: var(--space-6) 0;
+}
+
+.stat-number {
+  font-size: 3.5rem;
+  font-weight: 800;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+  margin-bottom: var(--space-2);
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.quick-actions {
+  margin-top: var(--space-10);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8);
+  background: white;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.action-card:hover {
+  border-color: var(--primary-400);
+  background: var(--primary-50);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.action-icon {
+  font-size: 2.5rem;
+}
+
+.action-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

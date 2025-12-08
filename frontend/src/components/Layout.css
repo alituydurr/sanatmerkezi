@@ -1,0 +1,19 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.main-content {
+  flex: 1;
+  padding: var(--space-8);
+  margin-left: 280px;
+  animation: fadeIn var(--transition-base);
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0;
+    padding: var(--space-6);
+  }
+}
