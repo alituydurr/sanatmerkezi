@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { studentsAPI, coursesAPI, teachersAPI, schedulesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { formatCurrencyWithSymbol } from '../utils/formatters';
 import './StudentDetail.css';
 
 export default function StudentDetail() {
@@ -16,7 +17,9 @@ export default function StudentDetail() {
   const [scheduleForm, setScheduleForm] = useState({
     course_id: '',
     teacher_id: '',
-    day_of_week: '1',
+    start_date: '',
+    end_date: '',
+    selected_days: [], // [0, 1, 2, 3, 4, 5, 6] for selected days
     start_time: '',
     end_time: '',
     room: ''
@@ -47,12 +50,39 @@ export default function StudentDetail() {
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (scheduleForm.selected_days.length === 0) {
+      alert('Lütfen en az bir gün seçin!');
+      return;
+    }
+
     try {
-      // Create schedule
-      await schedulesAPI.create({
-        ...scheduleForm,
-        is_recurring: true
-      });
+      // Calculate all dates between start_date and end_date for selected days
+      const startDate = new Date(scheduleForm.start_date);
+      const endDate = new Date(scheduleForm.end_date);
+      const schedulesToCreate = [];
+
+      // Iterate through each day in the range
+      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+        const dayOfWeek = date.getDay();
+        
+        // If this day is selected, add it to schedules
+        if (scheduleForm.selected_days.includes(dayOfWeek)) {
+          schedulesToCreate.push({
+            course_id: scheduleForm.course_id,
+            teacher_id: scheduleForm.teacher_id,
+            specific_date: date.toISOString().split('T')[0],
+            day_of_week: dayOfWeek,
+            start_time: scheduleForm.start_time,
+            end_time: scheduleForm.end_time,
+            room: scheduleForm.room,
+            is_recurring: false
+          });
+        }
+      }
+
+      // Create all schedules
+      await Promise.all(schedulesToCreate.map(schedule => schedulesAPI.create(schedule)));
 
       // Enroll student in course if not already enrolled
       const isEnrolled = student.courses?.some(c => c.id === parseInt(scheduleForm.course_id));
@@ -60,13 +90,32 @@ export default function StudentDetail() {
         await studentsAPI.enrollInCourse(student.id, scheduleForm.course_id);
       }
 
-      alert('Ders başarıyla eklendi!');
+      alert(`${schedulesToCreate.length} ders başarıyla eklendi!`);
       setShowScheduleModal(false);
+      setScheduleForm({
+        course_id: '',
+        teacher_id: '',
+        start_date: '',
+        end_date: '',
+        selected_days: [],
+        start_time: '',
+        end_time: '',
+        room: ''
+      });
       loadData();
     } catch (error) {
       console.error('Error adding schedule:', error);
       alert(error.response?.data?.error || 'Ders eklenirken hata oluştu');
     }
+  };
+
+  const toggleDay = (dayIndex) => {
+    setScheduleForm(prev => ({
+      ...prev,
+      selected_days: prev.selected_days.includes(dayIndex)
+        ? prev.selected_days.filter(d => d !== dayIndex)
+        : [...prev.selected_days, dayIndex]
+    }));
   };
 
   if (loading) {
@@ -150,15 +199,15 @@ export default function StudentDetail() {
             <>
               <div className="detail-row">
                 <span className="detail-label">Toplam Tutar:</span>
-                <span className="detail-value">₺{parseFloat(student.payment_info.total_amount || 0).toFixed(2)}</span>
+                <span className="detail-value">{formatCurrencyWithSymbol(student.payment_info.total_amount || 0)}</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Ödenen Tutar:</span>
-                <span className="detail-value text-success">₺{parseFloat(student.payment_info.paid_amount || 0).toFixed(2)}</span>
+                <span className="detail-value text-success">{formatCurrencyWithSymbol(student.payment_info.paid_amount || 0)}</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Kalan Tutar:</span>
-                <span className="detail-value text-error">₺{parseFloat(student.payment_info.remaining_amount || 0).toFixed(2)}</span>
+                <span className="detail-value text-error">{formatCurrencyWithSymbol(student.payment_info.remaining_amount || 0)}</span>
               </div>
               <div className="detail-row">
                 <span className="detail-label">Taksit Sayısı:</span>
@@ -225,18 +274,60 @@ export default function StudentDetail() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Gün *</label>
-                  <select
-                    className="form-select"
-                    value={scheduleForm.day_of_week}
-                    onChange={(e) => setScheduleForm({...scheduleForm, day_of_week: e.target.value})}
+                  <label className="form-label">Başlangıç Tarihi *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={scheduleForm.start_date}
+                    onChange={(e) => setScheduleForm({...scheduleForm, start_date: e.target.value})}
                     required
-                  >
-                    {daysOfWeek.map((day, idx) => (
-                      <option key={idx} value={idx}>{day}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
+                <div className="form-group">
+                  <label className="form-label">Bitiş Tarihi *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={scheduleForm.end_date}
+                    onChange={(e) => setScheduleForm({...scheduleForm, end_date: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ders Günleri * (En az bir gün seçin)</label>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+                  gap: 'var(--space-2)',
+                  marginTop: 'var(--space-2)'
+                }}>
+                  {daysOfWeek.map((day, idx) => (
+                    <label 
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
+                        padding: 'var(--space-2)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        backgroundColor: scheduleForm.selected_days.includes(idx) ? 'var(--primary-light)' : 'transparent'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={scheduleForm.selected_days.includes(idx)}
+                        onChange={() => toggleDay(idx)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span>{day}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Oda</label>
                   <input

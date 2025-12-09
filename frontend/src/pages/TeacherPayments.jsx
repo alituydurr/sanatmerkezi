@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { teacherPaymentsAPI, teachersAPI } from '../services/api';
+import { formatCurrencyWithSymbol } from '../utils/formatters';
 import '../pages/Students.css';
 import './TeacherPayments.css';
 
@@ -156,11 +157,11 @@ export default function TeacherPayments() {
                 <td className="font-bold">{tp.first_name} {tp.last_name}</td>
                 <td>{tp.month_year}</td>
                 <td>{parseFloat(tp.total_hours).toFixed(2)} saat</td>
-                <td>₺{parseFloat(tp.hourly_rate || 0).toFixed(2)}</td>
-                <td>₺{parseFloat(tp.total_amount).toFixed(2)}</td>
-                <td className="text-success">₺{parseFloat(tp.paid_amount || 0).toFixed(2)}</td>
+                <td>{formatCurrencyWithSymbol(tp.hourly_rate || 0)}</td>
+                <td>{formatCurrencyWithSymbol(tp.total_amount)}</td>
+                <td className="text-success">{formatCurrencyWithSymbol(tp.paid_amount || 0)}</td>
                 <td className={parseFloat(tp.remaining_amount) > 0 ? 'text-error' : 'text-success'}>
-                  ₺{parseFloat(tp.remaining_amount || 0).toFixed(2)}
+                  {formatCurrencyWithSymbol(tp.remaining_amount || 0)}
                 </td>
                 <td>
                   <span className={`badge badge-${
@@ -256,7 +257,7 @@ export default function TeacherPayments() {
             <div className="mb-4" style={{ padding: 'var(--space-4)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
               <p><strong>Öğretmen:</strong> {selectedTeacherPayment.first_name} {selectedTeacherPayment.last_name}</p>
               <p><strong>Ay:</strong> {selectedTeacherPayment.month_year}</p>
-              <p><strong>Kalan Tutar:</strong> ₺{parseFloat(selectedTeacherPayment.remaining_amount).toFixed(2)}</p>
+              <p><strong>Kalan Tutar:</strong> {formatCurrencyWithSymbol(selectedTeacherPayment.remaining_amount)}</p>
             </div>
             <form onSubmit={handlePaymentSubmit}>
               <div className="form-row">

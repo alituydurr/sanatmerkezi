@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
-import { teachersAPI } from '../services/api';
+import { teachersAPI, coursesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { formatPhoneNumber, unformatPhoneNumber } from '../utils/formatters';
 import '../pages/Students.css';
 
 export default function Teachers() {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [teachers, setTeachers] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,15 +23,19 @@ export default function Teachers() {
   });
 
   useEffect(() => {
-    loadTeachers();
+    loadData();
   }, []);
 
-  const loadTeachers = async () => {
+  const loadData = async () => {
     try {
-      const response = await teachersAPI.getAll();
-      setTeachers(response.data);
+      const [teachersRes, coursesRes] = await Promise.all([
+        teachersAPI.getAll(),
+        coursesAPI.getAll()
+      ]);
+      setTeachers(teachersRes.data);
+      setCourses(coursesRes.data);
     } catch (error) {
-      console.error('Error loading teachers:', error);
+      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -47,7 +54,7 @@ export default function Teachers() {
         specialization: '',
         password: ''
       });
-      loadTeachers();
+      loadData();
     } catch (error) {
       console.error('Error creating teacher:', error);
       alert('Öğretmen eklenirken hata oluştu');
@@ -59,7 +66,7 @@ export default function Teachers() {
     
     try {
       await teachersAPI.delete(id);
-      loadTeachers();
+      loadData();
     } catch (error) {
       console.error('Error deleting teacher:', error);
       alert('Öğretmen silinirken hata oluştu');
@@ -131,13 +138,21 @@ export default function Teachers() {
                 </td>
                 {isAdmin() && (
                   <td>
-                    <button
-                      onClick={() => handleDelete(teacher.id)}
-                      className="btn btn-sm btn-secondary"
-                      style={{ color: 'var(--error)' }}
-                    >
-                      Sil
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                      <button
+                        onClick={() => navigate(`/teachers/${teacher.id}`)}
+                        className="btn btn-sm btn-primary"
+                      >
+                        Detay
+                      </button>
+                      <button
+                        onClick={() => handleDelete(teacher.id)}
+                        className="btn btn-sm btn-secondary"
+                        style={{ color: 'var(--error)' }}
+                      >
+                        Sil
+                      </button>
+                    </div>
                   </td>
                 )}
               </tr>
@@ -175,14 +190,17 @@ export default function Teachers() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">E-posta *</label>
-                  <input
-                    type="email"
-                    className="form-input"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    required
-                  />
+                  <label className="form-label">Uzmanlık</label>
+                  <select
+                    className="form-select"
+                    value={formData.specialization}
+                    onChange={(e) => setFormData({...formData, specialization: e.target.value})}
+                  >
+                    <option value="">Seçiniz</option>
+                    {courses.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Telefon</label>
@@ -198,13 +216,14 @@ export default function Teachers() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Uzmanlık</label>
+                  <label className="form-label">E-posta *</label>
                   <input
-                    type="text"
+                    type="email"
                     className="form-input"
-                    value={formData.specialization}
-                    onChange={(e) => setFormData({...formData, specialization: e.target.value})}
-                    placeholder="Örn: Resim, Müzik, Dans"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="ornek@email.com"
+                    required
                   />
                 </div>
                 <div className="form-group">

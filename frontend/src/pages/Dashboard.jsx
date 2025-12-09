@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { studentsAPI, schedulesAPI, paymentsAPI } from '../services/api';
+import { studentsAPI, schedulesAPI, financialAPI } from '../services/api';
+import { formatCurrencyWithSymbol } from '../utils/formatters';
 import './Dashboard.css';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isTeacher } = useAuth();
   const [stats, setStats] = useState({
     totalStudents: 0,
     recentStudents: [],
     todaySchedules: [],
-    pendingPayments: []
+    todaysPayments: []
   });
   const [loading, setLoading] = useState(true);
 
@@ -19,31 +20,49 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [studentsRes, schedulesRes, paymentsRes] = await Promise.all([
-        studentsAPI.getAll(),
-        schedulesAPI.getAll(),
-        paymentsAPI.getPending()
-      ]);
+      if (isTeacher()) {
+        // Öğretmen için sadece kendi dersleri
+        const schedulesRes = await schedulesAPI.getAll();
+        const schedules = schedulesRes.data;
+        
+        // Bugünün dersleri
+        const today = new Date().getDay();
+        const todaySchedules = schedules.filter(s => s.day_of_week === today);
 
-      const students = studentsRes.data;
-      const schedules = schedulesRes.data;
-      const payments = paymentsRes.data;
+        setStats({
+          totalStudents: 0,
+          recentStudents: [],
+          todaySchedules,
+          pendingPayments: []
+        });
+      } else {
+        // Admin için tüm veriler
+        const [studentsRes, schedulesRes, todaysPaymentsRes] = await Promise.all([
+          studentsAPI.getAll(),
+          schedulesAPI.getAll(),
+          financialAPI.getTodaysPayments()
+        ]);
 
-      // Get recent students (last 5)
-      const recentStudents = students
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5);
+        const students = studentsRes.data;
+        const schedules = schedulesRes.data;
+        const todaysPayments = todaysPaymentsRes.data;
 
-      // Get today's schedules
-      const today = new Date().getDay();
-      const todaySchedules = schedules.filter(s => s.day_of_week === today).slice(0, 5);
+        // Get recent students (last 5)
+        const recentStudents = students
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, 5);
 
-      setStats({
-        totalStudents: students.length,
-        recentStudents,
-        todaySchedules,
-        pendingPayments: payments.slice(0, 5)
-      });
+        // Get today's schedules
+        const today = new Date().getDay();
+        const todaySchedules = schedules.filter(s => s.day_of_week === today).slice(0, 5);
+
+        setStats({
+          totalStudents: students.length,
+          recentStudents,
+          todaySchedules,
+          todaysPayments
+        });
+      }
     } catch (error) {
       console.error('Dashboard data load error:', error);
     } finally {
@@ -59,6 +78,63 @@ export default function Dashboard() {
     );
   }
 
+  // Öğretmen Dashboard'u
+  if (isTeacher()) {
+    return (
+      <div className="dashboard">
+        <div className="dashboard-header">
+          <div>
+            <h1 className="dashboard-title">
+              Öğretmen Paneline Hoş Geldiniz
+            </h1>
+            <p className="dashboard-subtitle">
+              Merhaba, {user?.full_name} 👋
+            </p>
+          </div>
+        </div>
+
+        <div className="dashboard-grid">
+          {/* Today's Lessons Card */}
+          <div className="dashboard-card card-gradient-1" style={{ gridColumn: '1 / -1' }}>
+            <div className="card-icon">📚</div>
+            <div className="card-content">
+              <h3 className="card-title">Bugünün Derslerim</h3>
+              <p className="card-description">Bugün vereceğiniz dersler</p>
+              <div className="card-list">
+                {stats.todaySchedules.length > 0 ? (
+                  stats.todaySchedules.map((schedule, idx) => (
+                    <div key={idx} className="list-item">
+                      <span className="item-time">{schedule.start_time?.slice(0, 5)}</span>
+                      <span className="item-name">{schedule.course_name}</span>
+                      {schedule.room && <span className="badge badge-info">{schedule.room}</span>}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-secondary text-sm">Bugün ders yok</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="quick-actions">
+          <h2 className="section-title">Hızlı İşlemler</h2>
+          <div className="actions-grid">
+            <a href="/schedule" className="action-card">
+              <span className="action-icon">📅</span>
+              <span className="action-label">Ders Programı</span>
+            </a>
+            <a href="/teachers" className="action-card">
+              <span className="action-icon">👤</span>
+              <span className="action-label">Profilim</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin Dashboard'u
   return (
     <div className="dashboard">
       <div className="dashboard-header">
@@ -130,26 +206,31 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Pending Payments Card */}
+        {/* Today's Payments Card */}
         <div className="dashboard-card card-gradient-4">
           <div className="card-icon">💰</div>
           <div className="card-content">
-            <h3 className="card-title">Bekleyen Ödemeler</h3>
-            <p className="card-description">Gecikmiş ödemeler</p>
+            <h3 className="card-title">Bugünün Ödemeleri</h3>
+            <p className="card-description">Bugün alınması gereken ödemeler</p>
             <div className="card-list">
-              {stats.pendingPayments.length > 0 ? (
-                stats.pendingPayments.map((payment, idx) => (
+              {stats.todaysPayments.length > 0 ? (
+                stats.todaysPayments.map((payment, idx) => (
                   <div key={idx} className="list-item">
-                    <span className="item-name">
-                      {payment.student_first_name} {payment.student_last_name}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span className="item-name">
+                        {payment.type === 'student' ? payment.name : payment.name}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {payment.type === 'student' ? payment.course_name : `Etkinlik: ${payment.event_type}`}
+                      </span>
+                    </div>
                     <span className="item-amount">
-                      ₺{parseFloat(payment.remaining_amount).toFixed(2)}
+                      {formatCurrencyWithSymbol(payment.amount)}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="text-secondary text-sm">Bekleyen ödeme yok</p>
+                <p className="text-secondary text-sm">Bugün ödeme yok</p>
               )}
             </div>
           </div>

@@ -104,4 +104,36 @@ export const teacherPaymentsAPI = {
   getRecords: (teacherId) => api.get(`/teacher-payments/records/${teacherId}`)
 };
 
+// Attendance API
+export const attendanceAPI = {
+  confirm: (data) => api.post('/attendance/confirm', data),
+  getTeacherAttendance: (startDate, endDate) =>
+    api.get('/attendance/teacher', {
+      params: { start_date: startDate, end_date: endDate }
+    }),
+  getAllAttendance: (startDate, endDate) =>
+    api.get('/attendance/all', {
+      params: { start_date: startDate, end_date: endDate }
+    })
+};
+
+// Events API
+export const eventsAPI = {
+  getAll: (monthYear) => api.get('/events', { params: { month_year: monthYear } }),
+  getById: (id) => api.get(`/events/${id}`),
+  create: (data) => api.post('/events', data),
+  update: (id, data) => api.put(`/events/${id}`, data),
+  delete: (id) => api.delete(`/events/${id}`),
+  enrollStudent: (data) => api.post('/events/enroll', data),
+  recordPayment: (data) => api.post('/events/payment', data),
+  recordDirectPayment: (data) => api.post('/events/direct-payment', data)
+};
+
+// Financial API
+export const financialAPI = {
+  getSummary: (monthYear) => api.get('/financial/summary', { params: { month_year: monthYear } }),
+  getReport: (monthYear) => api.get('/financial/report', { params: { month_year: monthYear } }),
+  getTodaysPayments: () => api.get('/financial/todays-payments')
+};
+
 export default api;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { coursesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { formatCurrencyWithSymbol } from '../utils/formatters';
 import '../pages/Students.css';
 
 export default function Courses() {
@@ -106,7 +107,7 @@ export default function Courses() {
                 </td>
                 <td>{course.capacity || '-'}</td>
                 <td>{course.duration_minutes || '-'}</td>
-                <td>{course.price ? `₺${course.price}` : '-'}</td>
+                <td>{course.price ? formatCurrencyWithSymbol(course.price) : '-'}</td>
                 <td>{course.enrolled_students || 0}</td>
                 {isAdmin() && (
                   <td>

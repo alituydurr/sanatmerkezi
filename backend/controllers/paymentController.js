@@ -1,24 +1,63 @@
 import pool from '../config/database.js';
 
-// Get all payment plans with calculated amounts
+// Get all payment plans with calculated amounts (includes both courses and events)
 export const getAllPaymentPlans = async (req, res, next) => {
   try {
-    const result = await pool.query(`
-      SELECT pp.*,
+    // Get course payment plans
+    const coursePlans = await pool.query(`
+      SELECT 
+        pp.id,
+        pp.student_id,
+        pp.course_id,
+        NULL as event_id,
+        'course' as payment_type,
         s.first_name as student_first_name,
         s.last_name as student_last_name,
-        c.name as course_name,
+        c.name as item_name,
+        pp.total_amount,
+        pp.installments,
+        pp.installment_amount,
+        pp.status,
+        pp.start_date,
         COALESCE(SUM(p.amount), 0) as paid_amount,
-        pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount
+        pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount,
+        pp.created_at
       FROM payment_plans pp
       INNER JOIN students s ON pp.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       GROUP BY pp.id, s.id, c.id
-      ORDER BY pp.created_at DESC
     `);
 
-    res.json(result.rows);
+    // Get event payments
+    const eventPayments = await pool.query(`
+      SELECT 
+        e.id,
+        NULL as student_id,
+        NULL as course_id,
+        e.id as event_id,
+        'event' as payment_type,
+        '' as student_first_name,
+        '' as student_last_name,
+        e.name as item_name,
+        e.price as total_amount,
+        1 as installments,
+        e.price as installment_amount,
+        e.status,
+        e.start_date,
+        COALESCE(SUM(ee.paid_amount), 0) as paid_amount,
+        e.price - COALESCE(SUM(ee.paid_amount), 0) as remaining_amount,
+        e.created_at
+      FROM events e
+      LEFT JOIN event_enrollments ee ON e.id = ee.event_id
+      GROUP BY e.id
+    `);
+
+    // Combine and sort by date
+    const allPayments = [...coursePlans.rows, ...eventPayments.rows]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.json(allPayments);
   } catch (error) {
     next(error);
   }

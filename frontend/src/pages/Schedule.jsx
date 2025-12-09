@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { schedulesAPI, coursesAPI, teachersAPI } from '../services/api';
+import { schedulesAPI, coursesAPI, teachersAPI, attendanceAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import '../pages/Students.css';
 import './Schedule.css';
 
 export default function Schedule() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isTeacher } = useAuth();
+  const navigate = useNavigate();
   const [schedules, setSchedules] = useState([]);
   const [courses, setCourses] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -90,6 +92,21 @@ export default function Schedule() {
     setExpandedSchedule(expandedSchedule === scheduleId ? null : scheduleId);
   };
 
+  const handleConfirmAttendance = async (scheduleId) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await attendanceAPI.confirm({
+        schedule_id: scheduleId,
+        attendance_date: today
+      });
+      alert('Ders başarıyla onaylandı!');
+      loadData();
+    } catch (error) {
+      console.error('Error confirming attendance:', error);
+      alert('Ders onaylanırken hata oluştu');
+    }
+  };
+
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
   }
@@ -103,11 +120,16 @@ export default function Schedule() {
           <h1 className="page-title">Ders Program Takvimi</h1>
           <p className="page-subtitle">Haftalık ders programını görüntüleyin</p>
         </div>
-        {isAdmin() && (
-          <button onClick={() => setShowModal(true)} className="btn btn-primary">
-            ➕ Yeni Program Ekle
+        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+          <button onClick={() => navigate('/attendance/history')} className="btn btn-secondary">
+            📋 Geçmiş Kayıtlar
           </button>
-        )}
+          {isAdmin() && (
+            <button onClick={() => setShowModal(true)} className="btn btn-primary">
+              ➕ Yeni Program Ekle
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="schedule-grid">
@@ -144,14 +166,6 @@ export default function Schedule() {
                         >
                           {expandedSchedule === schedule.id ? '▼' : '▶'}
                         </button>
-                        {isAdmin() && (
-                          <button
-                            onClick={() => handleDelete(schedule.id)}
-                            className="schedule-delete"
-                          >
-                            ✕
-                          </button>
-                        )}
                       </div>
                     </div>
                     
@@ -179,6 +193,17 @@ export default function Schedule() {
                             {schedule.course_type === 'group' ? 'Grup' : 'Birebir'}
                           </span>
                         </div>
+                        {isTeacher() && idx === new Date().getDay() && (
+                          <div className="expanded-row" style={{ marginTop: 'var(--space-3)' }}>
+                            <button
+                              onClick={() => handleConfirmAttendance(schedule.id)}
+                              className="btn btn-sm btn-success"
+                              style={{ width: '100%' }}
+                            >
+                              ✓ Dersi Onayla
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

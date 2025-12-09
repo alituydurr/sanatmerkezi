@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { paymentsAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { formatCurrencyWithSymbol } from '../utils/formatters';
 import '../pages/Students.css';
 import './UpcomingPayments.css';
 
@@ -77,7 +78,7 @@ export default function UpcomingPayments() {
             {Object.entries(monthlySummary).map(([month, total]) => (
               <div key={month} className="summary-card">
                 <div className="summary-month">{month}</div>
-                <div className="summary-amount">₺{total.toFixed(2)}</div>
+                <div className="summary-amount">{formatCurrencyWithSymbol(total)}</div>
               </div>
             ))}
           </div>
@@ -97,7 +98,7 @@ export default function UpcomingPayments() {
               </div>
               <div className="upcoming-total">
                 <span className="upcoming-label">Toplam Ödeme:</span>
-                <span className="upcoming-amount">₺{item.total_amount.toFixed(2)}</span>
+                <span className="upcoming-amount">{formatCurrencyWithSymbol(item.total_amount)}</span>
               </div>
               <div className="upcoming-details">
                 <h4 className="upcoming-subtitle">Ödemeler ({item.payments.length})</h4>
@@ -105,7 +106,7 @@ export default function UpcomingPayments() {
                   <div key={pidx} className="upcoming-payment-item">
                     <div className="upcoming-student">{payment.student_name}</div>
                     <div className="upcoming-course">{payment.course_name}</div>
-                    <div className="upcoming-payment-amount">₺{parseFloat(payment.amount).toFixed(2)}</div>
+                    <div className="upcoming-payment-amount">{formatCurrencyWithSymbol(payment.amount)}</div>
                   </div>
                 ))}
               </div>

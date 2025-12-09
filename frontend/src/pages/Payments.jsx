@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { paymentsAPI, studentsAPI, coursesAPI } from '../services/api';
+import { paymentsAPI, studentsAPI, coursesAPI, eventsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
@@ -73,11 +73,24 @@ export default function Payments() {
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     try {
-      await paymentsAPI.recordPayment({
-        payment_plan_id: selectedPlan.id,
-        student_id: selectedPlan.student_id,
-        ...paymentFormData
-      });
+      // Check if this is an event or course payment
+      if (selectedPlan.payment_type === 'event') {
+        // Event payment
+        await eventsAPI.recordDirectPayment({
+          event_id: selectedPlan.event_id,
+          amount: paymentFormData.amount,
+          payment_date: paymentFormData.payment_date,
+          notes: paymentFormData.notes
+        });
+      } else {
+        // Course payment
+        await paymentsAPI.recordPayment({
+          payment_plan_id: selectedPlan.id,
+          student_id: selectedPlan.student_id,
+          ...paymentFormData
+        });
+      }
+      
       setShowPaymentModal(false);
       setSelectedPlan(null);
       setPaymentFormData({
@@ -107,7 +120,9 @@ export default function Payments() {
     return (
       plan.student_first_name?.toLowerCase().includes(searchLower) ||
       plan.student_last_name?.toLowerCase().includes(searchLower) ||
-      plan.course_name?.toLowerCase().includes(searchLower)
+      plan.course_name?.toLowerCase().includes(searchLower) ||
+      plan.item_name?.toLowerCase().includes(searchLower) ||
+      plan.payment_type?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -146,8 +161,9 @@ export default function Payments() {
         <table>
           <thead>
             <tr>
-              <th>Öğrenci</th>
-              <th>Ders</th>
+              <th>Tür</th>
+              <th>Öğrenci/Etkinlik</th>
+              <th>Ders/Etkinlik Adı</th>
               <th>Toplam Tutar</th>
               <th>Taksit</th>
               <th>Ödenen</th>
@@ -161,27 +177,37 @@ export default function Payments() {
               const paidAmount = parseFloat(plan.paid_amount || 0);
               const totalAmount = parseFloat(plan.total_amount);
               const remainingAmount = parseFloat(plan.remaining_amount || 0);
+              const isEvent = plan.payment_type === 'event';
 
               return (
-                <tr key={plan.id}>
-                  <td className="font-bold">
-                    {plan.student_first_name} {plan.student_last_name}
+                <tr key={`${plan.payment_type}-${plan.id}`}>
+                  <td>
+                    <span className={`badge badge-${isEvent ? 'info' : 'success'}`}>
+                      {isEvent ? 'Etkinlik' : 'Ders'}
+                    </span>
                   </td>
-                  <td>{plan.course_name}</td>
-                  <td>₺{totalAmount.toFixed(2)}</td>
+                  <td className="font-bold">
+                    {isEvent ? '-' : `${plan.student_first_name} ${plan.student_last_name}`}
+                  </td>
+                  <td>{plan.item_name || plan.course_name}</td>
+                  <td>{formatCurrencyWithSymbol(totalAmount)}</td>
                   <td>{plan.installments} taksit</td>
-                  <td className="text-success">₺{paidAmount.toFixed(2)}</td>
+                  <td className="text-success">{formatCurrencyWithSymbol(paidAmount)}</td>
                   <td className={remainingAmount > 0 ? 'text-error' : 'text-success'}>
-                    ₺{remainingAmount.toFixed(2)}
+                    {formatCurrencyWithSymbol(remainingAmount)}
                   </td>
                   <td>
-                    <span className={`badge badge-${plan.status === 'completed' ? 'success' : 'warning'}`}>
-                      {plan.status === 'completed' ? 'Tamamlandı' : 'Devam Ediyor'}
+                    <span className={`badge badge-${
+                      plan.status === 'completed' || plan.status === 'paid' ? 'success' : 
+                      plan.status === 'cancelled' ? 'error' : 'warning'
+                    }`}>
+                      {plan.status === 'completed' || plan.status === 'paid' ? 'Tamamlandı' : 
+                       plan.status === 'cancelled' ? 'İptal' : 'Devam Ediyor'}
                     </span>
                   </td>
                   {isAdmin() && (
                     <td>
-                      {plan.status !== 'completed' && (
+                      {plan.status !== 'completed' && plan.status !== 'paid' && (
                         <button
                           onClick={() => openPaymentModal(plan)}
                           className="btn btn-sm btn-primary"
@@ -285,10 +311,22 @@ export default function Payments() {
       {showPaymentModal && selectedPlan && (
         <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Ödeme Kaydet</h2>
+            <h2 className="modal-title">
+              {selectedPlan.payment_type === 'event' ? 'Etkinlik Ödemesi Kaydet' : 'Ödeme Kaydet'}
+            </h2>
             <div className="mb-4" style={{ padding: 'var(--space-4)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-              <p><strong>Öğrenci:</strong> {selectedPlan.student_first_name} {selectedPlan.student_last_name}</p>
-              <p><strong>Kalan Tutar:</strong> ₺{parseFloat(selectedPlan.remaining_amount).toFixed(2)}</p>
+              {selectedPlan.payment_type === 'event' ? (
+                <>
+                  <p><strong>Etkinlik:</strong> {selectedPlan.item_name}</p>
+                  <p><strong>Toplam Tutar:</strong> {formatCurrencyWithSymbol(selectedPlan.total_amount)}</p>
+                  <p><strong>Kalan Tutar:</strong> {formatCurrencyWithSymbol(selectedPlan.remaining_amount)}</p>
+                </>
+              ) : (
+                <>
+                  <p><strong>Öğrenci:</strong> {selectedPlan.student_first_name} {selectedPlan.student_last_name}</p>
+                  <p><strong>Kalan Tutar:</strong> {formatCurrencyWithSymbol(selectedPlan.remaining_amount)}</p>
+                </>
+              )}
             </div>
             <form onSubmit={handlePaymentSubmit}>
               <div className="form-row">

@@ -24,16 +24,17 @@ export const getTeacherById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
+    // Öğretmen bilgileri
+    const teacherResult = await pool.query(
       'SELECT * FROM teachers WHERE id = $1',
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (teacherResult.rows.length === 0) {
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
-    // Get assigned courses
+    // Verdiği dersler (courses)
     const coursesResult = await pool.query(`
       SELECT c.*, tc.assigned_date
       FROM courses c
@@ -41,9 +42,39 @@ export const getTeacherById = async (req, res, next) => {
       WHERE tc.teacher_id = $1
     `, [id]);
 
+    // Ders programı (schedules)
+    const schedulesResult = await pool.query(`
+      SELECT cs.*, c.name as course_name
+      FROM course_schedules cs
+      INNER JOIN courses c ON cs.course_id = c.id
+      WHERE cs.teacher_id = $1
+      ORDER BY cs.day_of_week, cs.start_time
+    `, [id]);
+
+    // Toplam ders saati hesapla
+    const hoursResult = await pool.query(`
+      SELECT 
+        SUM(EXTRACT(EPOCH FROM (cs.end_time - cs.start_time)) / 3600) as total_hours_per_week
+      FROM course_schedules cs
+      WHERE cs.teacher_id = $1 AND cs.is_recurring = true
+    `, [id]);
+
+    // Ödeme bilgileri
+    const paymentResult = await pool.query(`
+      SELECT 
+        SUM(tp.total_amount) as total_amount,
+        SUM(tp.paid_amount) as paid_amount,
+        SUM(tp.remaining_amount) as remaining_amount
+      FROM teacher_payments tp
+      WHERE tp.teacher_id = $1
+    `, [id]);
+
     res.json({
-      ...result.rows[0],
-      courses: coursesResult.rows
+      ...teacherResult.rows[0],
+      courses: coursesResult.rows,
+      schedules: schedulesResult.rows,
+      hours_per_week: hoursResult.rows[0].total_hours_per_week || 0,
+      payment_info: paymentResult.rows[0]
     });
   } catch (error) {
     next(error);
