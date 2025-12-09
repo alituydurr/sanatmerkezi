@@ -11,6 +11,7 @@ export default function Schedule() {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [expandedSchedule, setExpandedSchedule] = useState(null);
   const [formData, setFormData] = useState({
     course_id: '',
     teacher_id: '',
@@ -85,6 +86,10 @@ export default function Schedule() {
     return grouped;
   };
 
+  const toggleExpand = (scheduleId) => {
+    setExpandedSchedule(expandedSchedule === scheduleId ? null : scheduleId);
+  };
+
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
   }
@@ -112,24 +117,69 @@ export default function Schedule() {
             <div className="schedule-list">
               {groupedSchedules[idx]?.length > 0 ? (
                 groupedSchedules[idx].map((schedule) => (
-                  <div key={schedule.id} className="schedule-item">
-                    <div className="schedule-time">
-                      {schedule.start_time?.slice(0, 5)} - {schedule.end_time?.slice(0, 5)}
+                  <div key={schedule.id} className="schedule-item-wrapper">
+                    <div className="schedule-item-compact">
+                      <div className="schedule-compact-left">
+                        <div className="schedule-time">
+                          {schedule.start_time?.slice(0, 5)} - {schedule.end_time?.slice(0, 5)}
+                        </div>
+                        <div className="schedule-students">
+                          {schedule.students && schedule.students.length > 0 ? (
+                            schedule.students.map((student, idx) => (
+                              <span key={student.id} className="student-tag">
+                                {student.first_name} {student.last_name}
+                                {idx < schedule.students.length - 1 && ', '}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-secondary text-sm">Öğrenci yok</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="schedule-compact-right">
+                        <button
+                          onClick={() => toggleExpand(schedule.id)}
+                          className="expand-btn"
+                          title="Detayları göster"
+                        >
+                          {expandedSchedule === schedule.id ? '▼' : '▶'}
+                        </button>
+                        {isAdmin() && (
+                          <button
+                            onClick={() => handleDelete(schedule.id)}
+                            className="schedule-delete"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="schedule-course">{schedule.course_name}</div>
-                    <div className="schedule-teacher">
-                      👨‍🏫 {schedule.teacher_first_name} {schedule.teacher_last_name}
-                    </div>
-                    {schedule.room && (
-                      <div className="schedule-room">📍 {schedule.room}</div>
-                    )}
-                    {isAdmin() && (
-                      <button
-                        onClick={() => handleDelete(schedule.id)}
-                        className="schedule-delete"
-                      >
-                        ✕
-                      </button>
+                    
+                    {expandedSchedule === schedule.id && (
+                      <div className="schedule-item-expanded">
+                        <div className="expanded-row">
+                          <span className="expanded-label">Ders:</span>
+                          <span className="expanded-value">{schedule.course_name}</span>
+                        </div>
+                        <div className="expanded-row">
+                          <span className="expanded-label">Öğretmen:</span>
+                          <span className="expanded-value">
+                            {schedule.teacher_first_name} {schedule.teacher_last_name}
+                          </span>
+                        </div>
+                        {schedule.room && (
+                          <div className="expanded-row">
+                            <span className="expanded-label">Oda:</span>
+                            <span className="expanded-value">{schedule.room}</span>
+                          </div>
+                        )}
+                        <div className="expanded-row">
+                          <span className="expanded-label">Ders Türü:</span>
+                          <span className={`badge badge-${schedule.course_type === 'group' ? 'info' : 'success'}`}>
+                            {schedule.course_type === 'group' ? 'Grup' : 'Birebir'}
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))

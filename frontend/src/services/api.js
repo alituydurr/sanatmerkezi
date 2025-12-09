@@ -91,7 +91,17 @@ export const paymentsAPI = {
   updatePlan: (id, data) => api.put(`/payments/plans/${id}`, data),
   recordPayment: (data) => api.post('/payments/record', data),
   getByStudent: (studentId) => api.get(`/payments/student/${studentId}`),
-  getPending: () => api.get('/payments/pending')
+  getPending: () => api.get('/payments/pending'),
+  getUpcoming: () => api.get('/payments/upcoming')
+};
+
+// Teacher Payments API
+export const teacherPaymentsAPI = {
+  getAll: (monthYear) => api.get('/teacher-payments', { params: { month_year: monthYear } }),
+  calculateHours: (teacherId, monthYear) => api.get(`/teacher-payments/calculate/${teacherId}/${monthYear}`),
+  create: (data) => api.post('/teacher-payments', data),
+  recordPayment: (data) => api.post('/teacher-payments/record', data),
+  getRecords: (teacherId) => api.get(`/teacher-payments/records/${teacherId}`)
 };
 
 export default api;

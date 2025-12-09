@@ -1,0 +1,14 @@
+.info-box {
+  padding: var(--space-4);
+  background: var(--primary-50);
+  border-left: 4px solid var(--primary-400);
+  border-radius: var(--radius-md);
+  margin: var(--space-4) 0;
+}
+
+.info-box p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}

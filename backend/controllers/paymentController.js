@@ -1,6 +1,6 @@
 import pool from '../config/database.js';
 
-// Get all payment plans
+// Get all payment plans with calculated amounts
 export const getAllPaymentPlans = async (req, res, next) => {
   try {
     const result = await pool.query(`
@@ -12,7 +12,7 @@ export const getAllPaymentPlans = async (req, res, next) => {
         pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount
       FROM payment_plans pp
       INNER JOIN students s ON pp.student_id = s.id
-      INNER JOIN courses c ON pp.course_id = c.id
+      LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       GROUP BY pp.id, s.id, c.id
       ORDER BY pp.created_at DESC
@@ -24,69 +24,93 @@ export const getAllPaymentPlans = async (req, res, next) => {
   }
 };
 
-// Get payment plan by ID
-export const getPaymentPlanById = async (req, res, next) => {
+// Get upcoming payments (gelecek dönem ödemeleri)
+export const getUpcomingPayments = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
     const result = await pool.query(`
-      SELECT pp.*,
-        s.first_name as student_first_name,
-        s.last_name as student_last_name,
+      SELECT 
+        pp.id,
+        pp.student_id,
+        s.first_name || ' ' || s.last_name as student_name,
         c.name as course_name,
+        pp.installment_dates,
+        pp.installment_amount,
+        pp.total_amount,
         COALESCE(SUM(p.amount), 0) as paid_amount,
         pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount
       FROM payment_plans pp
       INNER JOIN students s ON pp.student_id = s.id
-      INNER JOIN courses c ON pp.course_id = c.id
+      LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
-      WHERE pp.id = $1
+      WHERE pp.status = 'active'
       GROUP BY pp.id, s.id, c.id
-    `, [id]);
+      HAVING pp.total_amount - COALESCE(SUM(p.amount), 0) > 0
+      ORDER BY pp.created_at
+    `);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Payment plan not found' });
-    }
+    // Group by due dates
+    const upcomingByDate = {};
+    
+    result.rows.forEach(plan => {
+      if (plan.installment_dates && Array.isArray(plan.installment_dates)) {
+        plan.installment_dates.forEach(date => {
+          if (!upcomingByDate[date]) {
+            upcomingByDate[date] = {
+              date,
+              total_amount: 0,
+              payments: []
+            };
+          }
+          upcomingByDate[date].total_amount += parseFloat(plan.installment_amount);
+          upcomingByDate[date].payments.push({
+            student_name: plan.student_name,
+            course_name: plan.course_name,
+            amount: plan.installment_amount
+          });
+        });
+      }
+    });
 
-    // Get payment history
-    const paymentsResult = await pool.query(
-      'SELECT * FROM payments WHERE payment_plan_id = $1 ORDER BY payment_date DESC',
-      [id]
+    // Convert to array and sort by date
+    const upcoming = Object.values(upcomingByDate).sort((a, b) => 
+      new Date(a.date) - new Date(b.date)
     );
 
-    res.json({
-      ...result.rows[0],
-      payments: paymentsResult.rows
-    });
+    res.json(upcoming);
   } catch (error) {
     next(error);
   }
 };
 
-// Create payment plan
+// Create payment plan with installment dates
 export const createPaymentPlan = async (req, res, next) => {
   try {
-    const {
-      student_id,
-      course_id,
-      total_amount,
-      installments,
-      start_date
-    } = req.body;
+    const { student_id, course_id, total_amount, installments, start_date } = req.body;
 
-    if (!student_id || !course_id || !total_amount) {
-      return res.status(400).json({ error: 'Student ID, Course ID, and total amount are required' });
+    if (!student_id || !total_amount) {
+      return res.status(400).json({ error: 'Student ID and total amount are required' });
     }
 
-    const installment_amount = total_amount / (installments || 1);
+    const installmentAmount = (parseFloat(total_amount) / parseInt(installments || 1)).toFixed(2);
+    
+    // Calculate installment dates (monthly)
+    const installmentDates = [];
+    const startDate = new Date(start_date || Date.now());
+    
+    for (let i = 0; i < parseInt(installments || 1); i++) {
+      const dueDate = new Date(startDate);
+      dueDate.setMonth(dueDate.getMonth() + i);
+      installmentDates.push(dueDate.toISOString().split('T')[0]);
+    }
 
     const result = await pool.query(`
       INSERT INTO payment_plans (
-        student_id, course_id, total_amount, installments, installment_amount, start_date
+        student_id, course_id, total_amount, installments, 
+        installment_amount, start_date, installment_dates
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
-    `, [student_id, course_id, total_amount, installments || 1, installment_amount, start_date]);
+    `, [student_id, course_id, total_amount, installments, installmentAmount, start_date || new Date(), JSON.stringify(installmentDates)]);
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -94,75 +118,51 @@ export const createPaymentPlan = async (req, res, next) => {
   }
 };
 
-// Update payment plan
-export const updatePaymentPlan = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    const result = await pool.query(`
-      UPDATE payment_plans
-      SET status = COALESCE($1, status),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-      RETURNING *
-    `, [status, id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Payment plan not found' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Record a payment
+// Record a payment with date
 export const recordPayment = async (req, res, next) => {
   try {
-    const {
-      payment_plan_id,
-      student_id,
-      amount,
-      payment_date,
-      payment_method,
-      installment_number,
-      notes
-    } = req.body;
+    const { payment_plan_id, student_id, amount, payment_method, payment_date, notes } = req.body;
 
     if (!payment_plan_id || !student_id || !amount) {
       return res.status(400).json({ error: 'Payment plan ID, student ID, and amount are required' });
     }
 
-    const result = await pool.query(`
-      INSERT INTO payments (
-        payment_plan_id, student_id, amount, payment_date, payment_method, installment_number, notes
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-    `, [payment_plan_id, student_id, amount, payment_date, payment_method, installment_number, notes]);
+    // Get payment plan
+    const planResult = await pool.query(
+      'SELECT * FROM payment_plans WHERE id = $1',
+      [payment_plan_id]
+    );
 
-    // Check if payment plan is completed
-    const planResult = await pool.query(`
-      SELECT pp.total_amount, COALESCE(SUM(p.amount), 0) as paid_amount
-      FROM payment_plans pp
-      LEFT JOIN payments p ON pp.id = p.payment_plan_id
-      WHERE pp.id = $1
-      GROUP BY pp.id
-    `, [payment_plan_id]);
-
-    if (planResult.rows.length > 0) {
-      const { total_amount, paid_amount } = planResult.rows[0];
-      if (parseFloat(paid_amount) >= parseFloat(total_amount)) {
-        await pool.query(
-          'UPDATE payment_plans SET status = $1 WHERE id = $2',
-          ['completed', payment_plan_id]
-        );
-      }
+    if (planResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Payment plan not found' });
     }
 
-    res.status(201).json(result.rows[0]);
+    const plan = planResult.rows[0];
+
+    // Calculate current paid amount
+    const paidResult = await pool.query(
+      'SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE payment_plan_id = $1',
+      [payment_plan_id]
+    );
+
+    const totalPaid = parseFloat(paidResult.rows[0].total_paid) + parseFloat(amount);
+
+    // Record payment
+    const paymentResult = await pool.query(`
+      INSERT INTO payments (payment_plan_id, student_id, amount, payment_date, payment_method, notes)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [payment_plan_id, student_id, amount, payment_date || new Date(), payment_method, notes]);
+
+    // Update plan status if fully paid
+    if (totalPaid >= parseFloat(plan.total_amount)) {
+      await pool.query(
+        'UPDATE payment_plans SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+        ['completed', payment_plan_id]
+      );
+    }
+
+    res.status(201).json(paymentResult.rows[0]);
   } catch (error) {
     next(error);
   }
@@ -174,13 +174,11 @@ export const getPaymentsByStudent = async (req, res, next) => {
     const { studentId } = req.params;
 
     const result = await pool.query(`
-      SELECT p.*,
-        pp.total_amount,
-        pp.installments,
+      SELECT p.*, pp.total_amount, pp.installment_amount,
         c.name as course_name
       FROM payments p
       INNER JOIN payment_plans pp ON p.payment_plan_id = pp.id
-      INNER JOIN courses c ON pp.course_id = c.id
+      LEFT JOIN courses c ON pp.course_id = c.id
       WHERE p.student_id = $1
       ORDER BY p.payment_date DESC
     `, [studentId]);
@@ -196,20 +194,17 @@ export const getPendingPayments = async (req, res, next) => {
   try {
     const result = await pool.query(`
       SELECT pp.*,
-        s.first_name as student_first_name,
-        s.last_name as student_last_name,
-        s.phone as student_phone,
+        s.first_name || ' ' || s.last_name as student_name,
         c.name as course_name,
-        COALESCE(SUM(p.amount), 0) as paid_amount,
         pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount
       FROM payment_plans pp
       INNER JOIN students s ON pp.student_id = s.id
-      INNER JOIN courses c ON pp.course_id = c.id
+      LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       WHERE pp.status = 'active'
       GROUP BY pp.id, s.id, c.id
       HAVING pp.total_amount - COALESCE(SUM(p.amount), 0) > 0
-      ORDER BY pp.start_date ASC
+      ORDER BY pp.start_date
     `);
 
     res.json(result.rows);

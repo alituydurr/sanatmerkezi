@@ -60,9 +60,48 @@ export const getStudentById = async (req, res, next) => {
       WHERE sc.student_id = $1
     `, [id]);
 
+    // Get payment information
+    const paymentResult = await pool.query(`
+      SELECT 
+        SUM(pp.total_amount) as total_amount,
+        COALESCE(SUM(p.amount), 0) as paid_amount,
+        SUM(pp.total_amount) - COALESCE(SUM(p.amount), 0) as remaining_amount,
+        MAX(pp.installments) as installments,
+        MAX(p.payment_date) as last_payment_date
+      FROM payment_plans pp
+      LEFT JOIN payments p ON pp.id = p.payment_plan_id
+      WHERE pp.student_id = $1 AND pp.status = 'active'
+    `, [id]);
+
+    // Get next payment date from installment_dates
+    let nextPaymentDate = null;
+    if (paymentResult.rows[0].total_amount) {
+      const datesResult = await pool.query(`
+        SELECT installment_dates
+        FROM payment_plans
+        WHERE student_id = $1 AND status = 'active'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [id]);
+
+      if (datesResult.rows.length > 0 && datesResult.rows[0].installment_dates) {
+        const dates = datesResult.rows[0].installment_dates;
+        const futureDates = dates.filter(d => new Date(d) > new Date());
+        if (futureDates.length > 0) {
+          nextPaymentDate = futureDates.sort()[0];
+        }
+      }
+    }
+
+    const paymentInfo = paymentResult.rows[0].total_amount ? {
+      ...paymentResult.rows[0],
+      next_payment_date: nextPaymentDate
+    } : null;
+
     res.json({
       ...result.rows[0],
-      courses: coursesResult.rows
+      courses: coursesResult.rows,
+      payment_info: paymentInfo
     });
   } catch (error) {
     next(error);

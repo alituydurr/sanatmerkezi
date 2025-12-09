@@ -8,6 +8,7 @@ export default function Teachers() {
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -64,6 +65,17 @@ export default function Teachers() {
     }
   };
 
+  const filteredTeachers = teachers.filter(teacher => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      teacher.first_name?.toLowerCase().includes(searchLower) ||
+      teacher.last_name?.toLowerCase().includes(searchLower) ||
+      teacher.email?.toLowerCase().includes(searchLower) ||
+      teacher.phone?.includes(searchTerm) ||
+      teacher.specialization?.toLowerCase().includes(searchLower)
+    );
+  });
+
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
   }
@@ -75,11 +87,21 @@ export default function Teachers() {
           <h1 className="page-title">Öğretmen Yönetimi</h1>
           <p className="page-subtitle">Tüm öğretmenleri görüntüleyin ve yönetin</p>
         </div>
-        {isAdmin() && (
-          <button onClick={() => setShowModal(true)} className="btn btn-primary">
-            ➕ Yeni Öğretmen Ekle
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="🔍 İsim, telefon, e-posta, uzmanlık ile ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '350px' }}
+          />
+          {isAdmin() && (
+            <button onClick={() => setShowModal(true)} className="btn btn-primary">
+              ➕ Yeni Öğretmen Ekle
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="table-container">
@@ -95,7 +117,7 @@ export default function Teachers() {
             </tr>
           </thead>
           <tbody>
-            {teachers.map((teacher) => (
+            {filteredTeachers.map((teacher) => (
               <tr key={teacher.id}>
                 <td className="font-bold">{teacher.first_name} {teacher.last_name}</td>
                 <td>{teacher.email || '-'}</td>

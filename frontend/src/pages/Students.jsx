@@ -8,6 +8,7 @@ export default function Students() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -64,6 +65,18 @@ export default function Students() {
     }
   };
 
+  const filteredStudents = students.filter(student => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      student.first_name?.toLowerCase().includes(searchLower) ||
+      student.last_name?.toLowerCase().includes(searchLower) ||
+      student.email?.toLowerCase().includes(searchLower) ||
+      student.phone?.includes(searchTerm) ||
+      student.parent_name?.toLowerCase().includes(searchLower) ||
+      student.parent_phone?.includes(searchTerm)
+    );
+  });
+
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
   }
@@ -75,11 +88,21 @@ export default function Students() {
           <h1 className="page-title">Öğrenci Yönetimi</h1>
           <p className="page-subtitle">Tüm öğrencileri görüntüleyin ve yönetin</p>
         </div>
-        {isAdmin() && (
-          <button onClick={() => setShowModal(true)} className="btn btn-primary">
-            ➕ Yeni Öğrenci Ekle
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="🔍 İsim, telefon, e-posta ile ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '300px' }}
+          />
+          {isAdmin() && (
+            <button onClick={() => setShowModal(true)} className="btn btn-primary">
+              ➕ Yeni Öğrenci Ekle
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="table-container">
@@ -91,11 +114,11 @@ export default function Students() {
               <th>Telefon</th>
               <th>Veli</th>
               <th>Durum</th>
-              {isAdmin() && <th>İşlemler</th>}
+              <th>İşlemler</th>
             </tr>
           </thead>
           <tbody>
-            {students.map((student) => (
+            {filteredStudents.map((student) => (
               <tr key={student.id}>
                 <td className="font-bold">{student.first_name} {student.last_name}</td>
                 <td>{student.email || '-'}</td>
@@ -106,17 +129,25 @@ export default function Students() {
                     {student.status === 'active' ? 'Aktif' : 'Pasif'}
                   </span>
                 </td>
-                {isAdmin() && (
-                  <td>
+                <td>
+                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                     <button
-                      onClick={() => handleDelete(student.id)}
-                      className="btn btn-sm btn-secondary"
-                      style={{ color: 'var(--error)' }}
+                      onClick={() => window.location.href = `/students/${student.id}`}
+                      className="btn btn-sm btn-primary"
                     >
-                      Sil
+                      Detay
                     </button>
-                  </td>
-                )}
+                    {isAdmin() && (
+                      <button
+                        onClick={() => handleDelete(student.id)}
+                        className="btn btn-sm btn-secondary"
+                        style={{ color: 'var(--error)' }}
+                      >
+                        Sil
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>

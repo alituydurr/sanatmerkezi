@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { paymentsAPI, studentsAPI, coursesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import '../pages/Students.css';
 
 export default function Payments() {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [paymentPlans, setPaymentPlans] = useState([]);
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -12,15 +14,18 @@ export default function Payments() {
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [planFormData, setPlanFormData] = useState({
     student_id: '',
     course_id: '',
     total_amount: '',
-    installments: '1'
+    installments: '1',
+    start_date: new Date().toISOString().split('T')[0]
   });
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
     payment_method: 'cash',
+    payment_date: new Date().toISOString().split('T')[0],
     notes: ''
   });
 
@@ -54,7 +59,8 @@ export default function Payments() {
         student_id: '',
         course_id: '',
         total_amount: '',
-        installments: '1'
+        installments: '1',
+        start_date: new Date().toISOString().split('T')[0]
       });
       loadData();
     } catch (error) {
@@ -76,6 +82,7 @@ export default function Payments() {
       setPaymentFormData({
         amount: '',
         payment_method: 'cash',
+        payment_date: new Date().toISOString().split('T')[0],
         notes: ''
       });
       loadData();
@@ -94,6 +101,15 @@ export default function Payments() {
     setShowPaymentModal(true);
   };
 
+  const filteredPaymentPlans = paymentPlans.filter(plan => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      plan.student_first_name?.toLowerCase().includes(searchLower) ||
+      plan.student_last_name?.toLowerCase().includes(searchLower) ||
+      plan.course_name?.toLowerCase().includes(searchLower)
+    );
+  });
+
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
   }
@@ -105,11 +121,24 @@ export default function Payments() {
           <h1 className="page-title">Ödeme Takibi</h1>
           <p className="page-subtitle">Ödeme planlarını ve ödemeleri yönetin</p>
         </div>
-        {isAdmin() && (
-          <button onClick={() => setShowPlanModal(true)} className="btn btn-primary">
-            ➕ Yeni Ödeme Planı
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="🔍 Öğrenci, ders ile ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '250px' }}
+          />
+          <button onClick={() => navigate('/payments/upcoming')} className="btn btn-secondary">
+            📅 Gelecek Dönem Ödemeleri
           </button>
-        )}
+          {isAdmin() && (
+            <button onClick={() => setShowPlanModal(true)} className="btn btn-primary">
+              ➕ Yeni Ödeme Planı
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="table-container">
@@ -119,6 +148,7 @@ export default function Payments() {
               <th>Öğrenci</th>
               <th>Ders</th>
               <th>Toplam Tutar</th>
+              <th>Taksit</th>
               <th>Ödenen</th>
               <th>Kalan</th>
               <th>Durum</th>
@@ -126,11 +156,10 @@ export default function Payments() {
             </tr>
           </thead>
           <tbody>
-            {paymentPlans.map((plan) => {
+            {filteredPaymentPlans.map((plan) => {
               const paidAmount = parseFloat(plan.paid_amount || 0);
               const totalAmount = parseFloat(plan.total_amount);
               const remainingAmount = parseFloat(plan.remaining_amount || 0);
-              const progress = (paidAmount / totalAmount) * 100;
 
               return (
                 <tr key={plan.id}>
@@ -139,6 +168,7 @@ export default function Payments() {
                   </td>
                   <td>{plan.course_name}</td>
                   <td>₺{totalAmount.toFixed(2)}</td>
+                  <td>{plan.installments} taksit</td>
                   <td className="text-success">₺{paidAmount.toFixed(2)}</td>
                   <td className={remainingAmount > 0 ? 'text-error' : 'text-success'}>
                     ₺{remainingAmount.toFixed(2)}
@@ -227,6 +257,16 @@ export default function Payments() {
                   />
                 </div>
               </div>
+              <div className="form-group">
+                <label className="form-label">Başlangıç Tarihi *</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={planFormData.start_date}
+                  onChange={(e) => setPlanFormData({...planFormData, start_date: e.target.value})}
+                  required
+                />
+              </div>
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowPlanModal(false)} className="btn btn-secondary">
                   İptal
@@ -263,18 +303,28 @@ export default function Payments() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Ödeme Yöntemi *</label>
-                  <select
-                    className="form-select"
-                    value={paymentFormData.payment_method}
-                    onChange={(e) => setPaymentFormData({...paymentFormData, payment_method: e.target.value})}
+                  <label className="form-label">Ödeme Tarihi *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={paymentFormData.payment_date}
+                    onChange={(e) => setPaymentFormData({...paymentFormData, payment_date: e.target.value})}
                     required
-                  >
-                    <option value="cash">Nakit</option>
-                    <option value="credit_card">Kredi Kartı</option>
-                    <option value="bank_transfer">Havale</option>
-                  </select>
+                  />
                 </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ödeme Yöntemi *</label>
+                <select
+                  className="form-select"
+                  value={paymentFormData.payment_method}
+                  onChange={(e) => setPaymentFormData({...paymentFormData, payment_method: e.target.value})}
+                  required
+                >
+                  <option value="cash">Nakit</option>
+                  <option value="credit_card">Kredi Kartı</option>
+                  <option value="bank_transfer">Havale</option>
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Not</label>

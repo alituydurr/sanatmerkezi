@@ -7,6 +7,7 @@ import teacherRoutes from './routes/teachers.js';
 import courseRoutes from './routes/courses.js';
 import scheduleRoutes from './routes/schedules.js';
 import paymentRoutes from './routes/payments.js';
+import teacherPaymentRoutes from './routes/teacherPayments.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 dotenv.config();
@@ -40,6 +41,7 @@ app.use('/api/teachers', teacherRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/teacher-payments', teacherPaymentRoutes);
 
 // Error handlers
 app.use(notFoundHandler);

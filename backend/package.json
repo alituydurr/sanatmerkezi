@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "init-db": "node scripts/initDatabase.js"
+    "init-db": "node scripts/initDatabase.js",
+    "migrate": "node scripts/runMigration.js"
   },
   "keywords": ["art-center", "management", "api"],
   "author": "",
