@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { paymentsAPI, studentsAPI, coursesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { formatCurrencyWithSymbol } from '../utils/formatters';
 import '../pages/Students.css';
 
 export default function Payments() {

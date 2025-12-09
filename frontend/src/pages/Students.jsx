@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { studentsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { formatPhoneNumber, unformatPhoneNumber } from '../utils/formatters';
 import './Students.css';
 
 export default function Students() {
@@ -196,8 +197,10 @@ export default function Students() {
                   <input
                     type="tel"
                     className="form-input"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    placeholder="(555)-419-2222"
+                    value={formatPhoneNumber(formData.phone)}
+                    onChange={(e) => setFormData({...formData, phone: unformatPhoneNumber(e.target.value)})}
+                    maxLength="14"
                   />
                 </div>
               </div>
@@ -216,8 +219,10 @@ export default function Students() {
                   <input
                     type="tel"
                     className="form-input"
-                    value={formData.parent_phone}
-                    onChange={(e) => setFormData({...formData, parent_phone: e.target.value})}
+                    placeholder="(555)-419-2222"
+                    value={formatPhoneNumber(formData.parent_phone)}
+                    onChange={(e) => setFormData({...formData, parent_phone: unformatPhoneNumber(e.target.value)})}
+                    maxLength="14"
                   />
                 </div>
               </div>

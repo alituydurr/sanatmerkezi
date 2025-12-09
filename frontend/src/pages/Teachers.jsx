@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { teachersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { formatPhoneNumber, unformatPhoneNumber } from '../utils/formatters';
 import '../pages/Students.css';
 
 export default function Teachers() {
@@ -188,8 +189,10 @@ export default function Teachers() {
                   <input
                     type="tel"
                     className="form-input"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    placeholder="(555)-419-2222"
+                    value={formatPhoneNumber(formData.phone)}
+                    onChange={(e) => setFormData({...formData, phone: unformatPhoneNumber(e.target.value)})}
+                    maxLength="14"
                   />
                 </div>
               </div>
