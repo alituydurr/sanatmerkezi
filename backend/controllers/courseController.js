@@ -139,6 +139,32 @@ export const deleteCourse = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    // Check if course has any enrolled students
+    const studentCheck = await pool.query(
+      'SELECT COUNT(*) as count FROM student_courses WHERE course_id = $1',
+      [id]
+    );
+
+    if (parseInt(studentCheck.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: 'Bu derse kayıtlı öğrenciler bulunmaktadır. Önce öğrencilerin kaydını kaldırmalısınız.',
+        hasEnrolledStudents: true
+      });
+    }
+
+    // Check if course has any payment plans
+    const paymentCheck = await pool.query(
+      'SELECT COUNT(*) as count FROM payment_plans WHERE course_id = $1',
+      [id]
+    );
+
+    if (parseInt(paymentCheck.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: 'Bu derse ait ödeme planları bulunmaktadır. Önce ödeme planlarını iptal etmelisiniz.',
+        hasPaymentPlans: true
+      });
+    }
+
     const result = await pool.query(
       'DELETE FROM courses WHERE id = $1 RETURNING id',
       [id]

@@ -51,7 +51,7 @@ export const calculateTeacherHours = async (req, res, next) => {
   }
 };
 
-// Get all teacher payments
+// Get all teacher payments (excluding cancelled)
 export const getAllTeacherPayments = async (req, res, next) => {
   try {
     const { month_year } = req.query;
@@ -64,11 +64,12 @@ export const getAllTeacherPayments = async (req, res, next) => {
       FROM teacher_payments tp
       INNER JOIN teachers t ON tp.teacher_id = t.id
       LEFT JOIN teacher_payment_records tpr ON tp.id = tpr.teacher_payment_id
+      WHERE tp.status != 'cancelled'
     `;
 
     const params = [];
     if (month_year) {
-      query += ' WHERE tp.month_year = $1';
+      query += ' AND tp.month_year = $1';
       params.push(month_year);
     }
 
@@ -202,6 +203,69 @@ export const getTeacherPaymentRecords = async (req, res, next) => {
       WHERE tpr.teacher_id = $1
       ORDER BY tpr.payment_date DESC
     `, [teacherId]);
+
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Cancel teacher payment
+export const cancelTeacherPayment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { cancellation_reason } = req.body;
+
+    if (!cancellation_reason || cancellation_reason.trim() === '') {
+      return res.status(400).json({ error: 'İptal nedeni belirtilmelidir' });
+    }
+
+    const result = await pool.query(`
+      UPDATE teacher_payments
+      SET status = 'cancelled',
+          cancellation_reason = $1,
+          cancelled_at = CURRENT_TIMESTAMP,
+          cancelled_by = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      RETURNING *
+    `, [cancellation_reason, req.user?.id || null, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Teacher payment not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get cancelled teacher payments
+export const getCancelledTeacherPayments = async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        tp.id,
+        tp.teacher_id,
+        t.first_name,
+        t.last_name,
+        tp.month_year,
+        tp.total_hours,
+        tp.hourly_rate,
+        tp.total_amount,
+        tp.paid_amount,
+        tp.remaining_amount,
+        tp.status,
+        tp.cancellation_reason,
+        tp.cancelled_at,
+        CAST(tp.cancelled_by AS TEXT) as cancelled_by_username,
+        tp.created_at
+      FROM teacher_payments tp
+      INNER JOIN teachers t ON tp.teacher_id = t.id
+      WHERE tp.status = 'cancelled'
+      ORDER BY tp.cancelled_at DESC
+    `);
 
     res.json(result.rows);
   } catch (error) {

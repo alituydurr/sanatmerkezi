@@ -13,25 +13,31 @@ export const getFinancialSummary = async (req, res, next) => {
     const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0)
       .toISOString().split('T')[0];
 
-    // Get student payments (income) for the month
+    // Get student payments (income) for the month - exclude cancelled
     const studentPayments = await pool.query(`
       SELECT COALESCE(SUM(p.amount), 0) as total
       FROM payments p
+      INNER JOIN payment_plans pp ON p.payment_plan_id = pp.id
       WHERE DATE(p.payment_date) BETWEEN $1 AND $2
+        AND pp.status != 'cancelled'
     `, [startDate, endDate]);
 
-    // Get event payments (income) for the month
+    // Get event payments (income) for the month - exclude cancelled events
     const eventPayments = await pool.query(`
       SELECT COALESCE(SUM(ee.paid_amount), 0) as total
       FROM event_enrollments ee
+      INNER JOIN events e ON ee.event_id = e.id
       WHERE DATE(ee.enrollment_date) BETWEEN $1 AND $2
+        AND e.status != 'cancelled'
     `, [startDate, endDate]);
 
-    // Get teacher payments (expense) for the month
+    // Get teacher payments (expense) for the month - exclude cancelled
     const teacherPayments = await pool.query(`
-      SELECT COALESCE(SUM(tp.amount), 0) as total
-      FROM teacher_payment_records tp
-      WHERE DATE(tp.payment_date) BETWEEN $1 AND $2
+      SELECT COALESCE(SUM(tpr.amount), 0) as total
+      FROM teacher_payment_records tpr
+      INNER JOIN teacher_payments tp ON tpr.teacher_payment_id = tp.id
+      WHERE DATE(tpr.payment_date) BETWEEN $1 AND $2
+        AND tp.status != 'cancelled'
     `, [startDate, endDate]);
 
     // Get planned income (upcoming student payments)
@@ -98,7 +104,7 @@ export const getFinancialReport = async (req, res, next) => {
     const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0)
       .toISOString().split('T')[0];
 
-    // Student payments breakdown
+    // Student payments breakdown - exclude cancelled
     const studentPaymentsDetail = await pool.query(`
       SELECT 
         s.first_name || ' ' || s.last_name as student_name,
@@ -111,10 +117,11 @@ export const getFinancialReport = async (req, res, next) => {
       INNER JOIN payment_plans pp ON p.payment_plan_id = pp.id
       LEFT JOIN courses c ON pp.course_id = c.id
       WHERE DATE(p.payment_date) BETWEEN $1 AND $2
+        AND pp.status != 'cancelled'
       ORDER BY p.payment_date DESC
     `, [startDate, endDate]);
 
-    // Event payments breakdown
+    // Event payments breakdown - exclude cancelled events
     const eventPaymentsDetail = await pool.query(`
       SELECT 
         e.name as event_name,
@@ -124,11 +131,12 @@ export const getFinancialReport = async (req, res, next) => {
       FROM events e
       LEFT JOIN event_enrollments ee ON e.id = ee.event_id
       WHERE DATE(e.start_date) BETWEEN $1 AND $2
+        AND e.status != 'cancelled'
       GROUP BY e.id
       ORDER BY e.start_date DESC
     `, [startDate, endDate]);
 
-    // Teacher payments breakdown
+    // Teacher payments breakdown - exclude cancelled
     const teacherPaymentsDetail = await pool.query(`
       SELECT 
         t.first_name || ' ' || t.last_name as teacher_name,
@@ -141,6 +149,7 @@ export const getFinancialReport = async (req, res, next) => {
       INNER JOIN teacher_payments tp ON tpr.teacher_payment_id = tp.id
       INNER JOIN teachers t ON tp.teacher_id = t.id
       WHERE DATE(tpr.payment_date) BETWEEN $1 AND $2
+        AND tp.status != 'cancelled'
       ORDER BY tpr.payment_date DESC
     `, [startDate, endDate]);
 

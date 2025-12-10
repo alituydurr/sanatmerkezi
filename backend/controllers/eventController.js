@@ -266,3 +266,65 @@ export const recordDirectEventPayment = async (req, res, next) => {
     next(error);
   }
 };
+
+// Cancel event
+export const cancelEvent = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { cancellation_reason } = req.body;
+
+    if (!cancellation_reason) {
+      return res.status(400).json({ error: 'Cancellation reason is required' });
+    }
+
+    const result = await pool.query(
+      `UPDATE events
+      SET status = 'cancelled',
+          cancellation_reason = $1,
+          cancelled_at = CURRENT_TIMESTAMP,
+          cancelled_by = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      RETURNING *`,
+      [cancellation_reason, req.user.id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get cancelled events
+export const getCancelledEvents = async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        e.id,
+        e.name as item_name,
+        e.event_type,
+        e.price as total_amount,
+        e.start_date,
+        e.end_date,
+        e.cancellation_reason,
+        e.cancelled_at,
+        COALESCE(SUM(ee.paid_amount), 0) as paid_amount,
+        t.first_name,
+        t.last_name
+      FROM events e
+      LEFT JOIN event_enrollments ee ON e.id = ee.event_id
+      LEFT JOIN teachers t ON e.teacher_id = t.id
+      WHERE e.status = 'cancelled'
+      GROUP BY e.id, t.first_name, t.last_name
+      ORDER BY e.cancelled_at DESC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};

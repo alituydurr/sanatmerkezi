@@ -12,7 +12,9 @@ import Courses from './pages/Courses';
 import Schedule from './pages/Schedule';
 import Payments from './pages/Payments';
 import UpcomingPayments from './pages/UpcomingPayments';
+import CancelledPayments from './pages/CancelledPayments';
 import TeacherPayments from './pages/TeacherPayments';
+import CancelledTeacherPayments from './pages/CancelledTeacherPayments';
 import AttendanceHistory from './pages/AttendanceHistory';
 import Events from './pages/Events';
 import FinancialReports from './pages/FinancialReports';
@@ -41,7 +43,9 @@ function App() {
             <Route path="events" element={<Events />} />
             <Route path="payments" element={<Payments />} />
             <Route path="payments/upcoming" element={<UpcomingPayments />} />
+            <Route path="payments/cancelled" element={<CancelledPayments />} />
             <Route path="teacher-payments" element={<TeacherPayments />} />
+            <Route path="teacher-payments/cancelled" element={<CancelledTeacherPayments />} />
             <Route path="financial-reports" element={<FinancialReports />} />
           </Route>
 

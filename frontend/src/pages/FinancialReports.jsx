@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { financialAPI } from '../services/api';
+import { financialAPI, paymentsAPI, teacherPaymentsAPI, eventsAPI } from '../services/api';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
 import '../pages/Students.css';
 
@@ -9,6 +9,9 @@ export default function FinancialReports() {
   );
   const [summary, setSummary] = useState(null);
   const [report, setReport] = useState(null);
+  const [cancelledPayments, setCancelledPayments] = useState([]);
+  const [cancelledTeacherPayments, setCancelledTeacherPayments] = useState([]);
+  const [cancelledEvents, setCancelledEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'report'
 
@@ -18,12 +21,41 @@ export default function FinancialReports() {
 
   const loadData = async () => {
     try {
-      const [summaryRes, reportRes] = await Promise.all([
+      const [summaryRes, reportRes, cancelledPaymentsRes, cancelledTeacherPaymentsRes, cancelledEventsRes] = await Promise.all([
         financialAPI.getSummary(selectedMonth),
-        financialAPI.getReport(selectedMonth)
+        financialAPI.getReport(selectedMonth),
+        paymentsAPI.getCancelled(),
+        teacherPaymentsAPI.getCancelled(),
+        eventsAPI.getCancelled()
       ]);
       setSummary(summaryRes.data);
       setReport(reportRes.data);
+      
+      // Filter cancelled payments by selected month
+      const [year, month] = selectedMonth.split('-');
+      const filtered = cancelledPaymentsRes.data.filter(p => {
+        if (!p.cancelled_at) return false;
+        const cancelDate = new Date(p.cancelled_at);
+        return cancelDate.getFullYear() === parseInt(year) && 
+               (cancelDate.getMonth() + 1) === parseInt(month);
+      });
+      setCancelledPayments(filtered);
+      
+      const filteredTeacher = cancelledTeacherPaymentsRes.data.filter(p => {
+        if (!p.cancelled_at) return false;
+        const cancelDate = new Date(p.cancelled_at);
+        return cancelDate.getFullYear() === parseInt(year) && 
+               (cancelDate.getMonth() + 1) === parseInt(month);
+      });
+      setCancelledTeacherPayments(filteredTeacher);
+      
+      const filteredEvents = cancelledEventsRes.data.filter(e => {
+        if (!e.cancelled_at) return false;
+        const cancelDate = new Date(e.cancelled_at);
+        return cancelDate.getFullYear() === parseInt(year) && 
+               (cancelDate.getMonth() + 1) === parseInt(month);
+      });
+      setCancelledEvents(filteredEvents);
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
@@ -333,6 +365,119 @@ export default function FinancialReports() {
               Toplam Gider: {formatCurrencyWithSymbol(report.expenses.total)}
             </div>
           </div>
+
+          {/* Cancelled Payments Section */}
+          {(cancelledPayments.length > 0 || cancelledTeacherPayments.length > 0 || cancelledEvents.length > 0) && (
+            <div style={{ marginBottom: 'var(--space-6)' }}>
+              <h3 style={{ 
+                color: '#f59e0b', 
+                marginBottom: 'var(--space-3)',
+                paddingBottom: 'var(--space-2)',
+                borderBottom: '2px solid #f59e0b'
+              }}>
+                ❌ İPTAL EDİLEN ÖDEMELER
+              </h3>
+
+              {/* Cancelled Student Payments */}
+              {cancelledPayments.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <h4>İptal Edilen Öğrenci Ödemeleri</h4>
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Öğrenci</th>
+                          <th>Ders</th>
+                          <th>Toplam Tutar</th>
+                          <th>Ödenen</th>
+                          <th>İptal Tarihi</th>
+                          <th>İptal Nedeni</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cancelledPayments.map((payment, idx) => (
+                          <tr key={idx}>
+                            <td>{payment.student_first_name} {payment.student_last_name}</td>
+                            <td>{payment.course_name || '-'}</td>
+                            <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
+                            <td>{formatCurrencyWithSymbol(payment.paid_amount || 0)}</td>
+                            <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                            <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Cancelled Teacher Payments */}
+              {cancelledTeacherPayments.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <h4>İptal Edilen Öğretmen Ödemeleri</h4>
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Öğretmen</th>
+                          <th>Ay</th>
+                          <th>Toplam Tutar</th>
+                          <th>Ödenen</th>
+                          <th>İptal Tarihi</th>
+                          <th>İptal Nedeni</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cancelledTeacherPayments.map((payment, idx) => (
+                          <tr key={idx}>
+                            <td>{payment.first_name} {payment.last_name}</td>
+                            <td>{payment.month_year}</td>
+                            <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
+                            <td>{formatCurrencyWithSymbol(payment.paid_amount || 0)}</td>
+                            <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                            <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Cancelled Events */}
+              {cancelledEvents.length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <h4>İptal Edilen Etkinlikler</h4>
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Etkinlik</th>
+                          <th>Tür</th>
+                          <th>Toplam Tutar</th>
+                          <th>Ödenen</th>
+                          <th>İptal Tarihi</th>
+                          <th>İptal Nedeni</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cancelledEvents.map((event, idx) => (
+                          <tr key={idx}>
+                            <td>{event.item_name}</td>
+                            <td>{event.event_type}</td>
+                            <td>{formatCurrencyWithSymbol(event.total_amount)}</td>
+                            <td>{formatCurrencyWithSymbol(event.paid_amount || 0)}</td>
+                            <td>{new Date(event.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                            <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{event.cancellation_reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Net Profit */}
           <div style={{ 

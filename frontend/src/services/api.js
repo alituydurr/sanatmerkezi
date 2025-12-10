@@ -92,7 +92,9 @@ export const paymentsAPI = {
   recordPayment: (data) => api.post('/payments/record', data),
   getByStudent: (studentId) => api.get(`/payments/student/${studentId}`),
   getPending: () => api.get('/payments/pending'),
-  getUpcoming: () => api.get('/payments/upcoming')
+  getUpcoming: () => api.get('/payments/upcoming'),
+  cancelPlan: (id, cancellation_reason) => api.post(`/payments/plans/${id}/cancel`, { cancellation_reason }),
+  getCancelled: () => api.get('/payments/cancelled')
 };
 
 // Teacher Payments API
@@ -101,7 +103,9 @@ export const teacherPaymentsAPI = {
   calculateHours: (teacherId, monthYear) => api.get(`/teacher-payments/calculate/${teacherId}/${monthYear}`),
   create: (data) => api.post('/teacher-payments', data),
   recordPayment: (data) => api.post('/teacher-payments/record', data),
-  getRecords: (teacherId) => api.get(`/teacher-payments/records/${teacherId}`)
+  getRecords: (teacherId) => api.get(`/teacher-payments/records/${teacherId}`),
+  cancel: (id, cancellation_reason) => api.post(`/teacher-payments/${id}/cancel`, { cancellation_reason }),
+  getCancelled: () => api.get('/teacher-payments/cancelled')
 };
 
 // Attendance API
@@ -126,7 +130,9 @@ export const eventsAPI = {
   delete: (id) => api.delete(`/events/${id}`),
   enrollStudent: (data) => api.post('/events/enroll', data),
   recordPayment: (data) => api.post('/events/payment', data),
-  recordDirectPayment: (data) => api.post('/events/direct-payment', data)
+  recordDirectPayment: (data) => api.post('/events/direct-payment', data),
+  cancel: (id, cancellation_reason) => api.post(`/events/${id}/cancel`, { cancellation_reason }),
+  getCancelled: () => api.get('/events/cancelled')
 };
 
 // Financial API

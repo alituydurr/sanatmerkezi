@@ -191,6 +191,19 @@ export const deleteStudent = async (req, res, next) => {
   try {
     const { id } = req.params;
 
+    // Check if student has any payment plans
+    const paymentCheck = await pool.query(
+      'SELECT COUNT(*) as count FROM payment_plans WHERE student_id = $1',
+      [id]
+    );
+
+    if (parseInt(paymentCheck.rows[0].count) > 0) {
+      return res.status(400).json({ 
+        error: 'Bu öğrencinin ödeme planı bulunmaktadır. Önce ödeme planlarını iptal etmelisiniz.',
+        hasPaymentPlans: true
+      });
+    }
+
     const result = await pool.query(
       'DELETE FROM students WHERE id = $1 RETURNING id',
       [id]

@@ -14,8 +14,10 @@ export default function Payments() {
   const [loading, setLoading] = useState(true);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
   const [planFormData, setPlanFormData] = useState({
     student_id: '',
     course_id: '',
@@ -115,6 +117,37 @@ export default function Payments() {
     setShowPaymentModal(true);
   };
 
+  const openCancelModal = (plan) => {
+    setSelectedPlan(plan);
+    setCancelReason('');
+    setShowCancelModal(true);
+  };
+
+  const handleCancelPlan = async (e) => {
+    e.preventDefault();
+    if (!cancelReason.trim()) {
+      alert('Lütfen iptal nedenini belirtin');
+      return;
+    }
+    try {
+      // Check if this is an event or course payment
+      if (selectedPlan.payment_type === 'event') {
+        // Cancel event
+        await eventsAPI.cancel(selectedPlan.event_id, cancelReason);
+      } else {
+        // Cancel payment plan
+        await paymentsAPI.cancelPlan(selectedPlan.id, cancelReason);
+      }
+      setShowCancelModal(false);
+      setSelectedPlan(null);
+      setCancelReason('');
+      loadData();
+    } catch (error) {
+      console.error('Error cancelling:', error);
+      alert('İptal işlemi sırasında hata oluştu');
+    }
+  };
+
   const filteredPaymentPlans = paymentPlans.filter(plan => {
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -148,6 +181,9 @@ export default function Payments() {
           />
           <button onClick={() => navigate('/payments/upcoming')} className="btn btn-secondary">
             📅 Gelecek Dönem Ödemeleri
+          </button>
+          <button onClick={() => navigate('/payments/cancelled')} className="btn btn-secondary">
+            ❌ İptal Edilen Ödemeler
           </button>
           {isAdmin() && (
             <button onClick={() => setShowPlanModal(true)} className="btn btn-primary">
@@ -207,14 +243,23 @@ export default function Payments() {
                   </td>
                   {isAdmin() && (
                     <td>
-                      {remainingAmount > 0 && (
+                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        {remainingAmount > 0 && (
+                          <button
+                            onClick={() => openPaymentModal(plan)}
+                            className="btn btn-sm btn-primary"
+                          >
+                            Ödeme Kaydet
+                          </button>
+                        )}
                         <button
-                          onClick={() => openPaymentModal(plan)}
-                          className="btn btn-sm btn-primary"
+                          onClick={() => openCancelModal(plan)}
+                          className="btn btn-sm btn-secondary"
+                          style={{ backgroundColor: 'var(--error)', borderColor: 'var(--error)' }}
                         >
-                          Ödeme Kaydet
+                          İptal Et
                         </button>
-                      )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -380,6 +425,50 @@ export default function Payments() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Ödemeyi Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>  
+      )}
+      {/* Cancel Modal */}
+      {showCancelModal && selectedPlan && (
+        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Ödeme Planını İptal Et</h2>
+            <div className="mb-4" style={{ padding: 'var(--space-4)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+              {selectedPlan.payment_type === 'event' ? (
+                <>
+                  <p><strong>Etkinlik:</strong> {selectedPlan.item_name}</p>
+                  <p><strong>Toplam Tutar:</strong> {formatCurrencyWithSymbol(selectedPlan.total_amount)}</p>
+                </>
+              ) : (
+                <>
+                  <p><strong>Öğrenci:</strong> {selectedPlan.student_first_name} {selectedPlan.student_last_name}</p>
+                  <p><strong>Ders:</strong> {selectedPlan.item_name || selectedPlan.course_name}</p>
+                  <p><strong>Toplam Tutar:</strong> {formatCurrencyWithSymbol(selectedPlan.total_amount)}</p>
+                  <p><strong>Ödenen:</strong> {formatCurrencyWithSymbol(selectedPlan.paid_amount || 0)}</p>
+                </>
+              )}
+            </div>
+            <form onSubmit={handleCancelPlan}>
+              <div className="form-group">
+                <label className="form-label">İptal Nedeni *</label>
+                <textarea
+                  className="form-textarea"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  rows="4"
+                  placeholder="Lütfen ödeme planının neden iptal edildiğini açıklayın..."
+                  required
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowCancelModal(false)} className="btn btn-secondary">
+                  Vazgeç
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--error)', borderColor: 'var(--error)' }}>
+                  İptal Et
                 </button>
               </div>
             </form>

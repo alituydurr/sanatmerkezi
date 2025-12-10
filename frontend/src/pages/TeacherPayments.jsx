@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
 import { teacherPaymentsAPI, teachersAPI } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
 import '../pages/Students.css';
 import './TeacherPayments.css';
 
 export default function TeacherPayments() {
+  const navigate = useNavigate();
   const [teacherPayments, setTeacherPayments] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [showCalculateModal, setShowCalculateModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedTeacherPayment, setSelectedTeacherPayment] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
   const [calculateForm, setCalculateForm] = useState({
     teacher_id: '',
     month_year: '',
@@ -106,6 +110,30 @@ export default function TeacherPayments() {
     setShowPaymentModal(true);
   };
 
+  const openCancelModal = (tp) => {
+    setSelectedTeacherPayment(tp);
+    setCancelReason('');
+    setShowCancelModal(true);
+  };
+
+  const handleCancelPayment = async (e) => {
+    e.preventDefault();
+    if (!cancelReason.trim()) {
+      alert('Lütfen iptal nedenini belirtin');
+      return;
+    }
+    try {
+      await teacherPaymentsAPI.cancel(selectedTeacherPayment.id, cancelReason);
+      setShowCancelModal(false);
+      setSelectedTeacherPayment(null);
+      setCancelReason('');
+      loadData();
+    } catch (error) {
+      console.error('Error cancelling payment:', error);
+      alert('Ödeme iptal edilirken hata oluştu');
+    }
+  };
+
   const getCurrentMonth = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -130,6 +158,9 @@ export default function TeacherPayments() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             style={{ width: '200px' }}
           />
+          <button onClick={() => navigate('/teacher-payments/cancelled')} className="btn btn-secondary">
+            ❌ İptal Edilen Ödemeler
+          </button>
           <button onClick={() => setShowCalculateModal(true)} className="btn btn-primary">
             ➕ Ödeme Hesapla
           </button>
@@ -173,14 +204,23 @@ export default function TeacherPayments() {
                   </span>
                 </td>
                 <td>
-                  {tp.status !== 'completed' && (
+                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                    {tp.status !== 'completed' && (
+                      <button
+                        onClick={() => openPaymentModal(tp)}
+                        className="btn btn-sm btn-primary"
+                      >
+                        Ödeme Yap
+                      </button>
+                    )}
                     <button
-                      onClick={() => openPaymentModal(tp)}
-                      className="btn btn-sm btn-primary"
+                      onClick={() => openCancelModal(tp)}
+                      className="btn btn-sm btn-secondary"
+                      style={{ backgroundColor: 'var(--error)', borderColor: 'var(--error)' }}
                     >
-                      Ödeme Yap
+                      İptal Et
                     </button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -311,6 +351,41 @@ export default function TeacherPayments() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Ödemeyi Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Cancel Modal */}
+      {showCancelModal && selectedTeacherPayment && (
+        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Öğretmen Ödemesini İptal Et</h2>
+            <div className="mb-4" style={{ padding: 'var(--space-4)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+              <p><strong>Öğretmen:</strong> {selectedTeacherPayment.first_name} {selectedTeacherPayment.last_name}</p>
+              <p><strong>Ay:</strong> {selectedTeacherPayment.month_year}</p>
+              <p><strong>Toplam Tutar:</strong> {formatCurrencyWithSymbol(selectedTeacherPayment.total_amount)}</p>
+              <p><strong>Ödenen:</strong> {formatCurrencyWithSymbol(selectedTeacherPayment.paid_amount || 0)}</p>
+            </div>
+            <form onSubmit={handleCancelPayment}>
+              <div className="form-group">
+                <label className="form-label">İptal Nedeni *</label>
+                <textarea
+                  className="form-textarea"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  rows="4"
+                  placeholder="Lütfen ödemenin neden iptal edildiğini açıklayın..."
+                  required
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowCancelModal(false)} className="btn btn-secondary">
+                  Vazgeç
+                </button>
+                <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--error)', borderColor: 'var(--error)' }}>
+                  İptal Et
                 </button>
               </div>
             </form>

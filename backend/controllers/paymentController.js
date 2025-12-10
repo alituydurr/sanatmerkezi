@@ -3,7 +3,7 @@ import pool from '../config/database.js';
 // Get all payment plans with calculated amounts (includes both courses and events)
 export const getAllPaymentPlans = async (req, res, next) => {
   try {
-    // Get course payment plans
+    // Get course payment plans (excluding cancelled)
     const coursePlans = await pool.query(`
       SELECT 
         pp.id,
@@ -26,10 +26,11 @@ export const getAllPaymentPlans = async (req, res, next) => {
       INNER JOIN students s ON pp.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
+      WHERE pp.status != 'cancelled'
       GROUP BY pp.id, s.id, c.id
     `);
 
-    // Get event payments
+    // Get event payments (excluding cancelled)
     const eventPayments = await pool.query(`
       SELECT 
         e.id,
@@ -50,6 +51,7 @@ export const getAllPaymentPlans = async (req, res, next) => {
         e.created_at
       FROM events e
       LEFT JOIN event_enrollments ee ON e.id = ee.event_id
+      WHERE e.status != 'cancelled'
       GROUP BY e.id
     `);
 
@@ -244,6 +246,74 @@ export const getPendingPayments = async (req, res, next) => {
       GROUP BY pp.id, s.id, c.id
       HAVING pp.total_amount - COALESCE(SUM(p.amount), 0) > 0
       ORDER BY pp.start_date
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Cancel payment plan
+export const cancelPaymentPlan = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { cancellation_reason } = req.body;
+
+    if (!cancellation_reason || cancellation_reason.trim() === '') {
+      return res.status(400).json({ error: 'İptal nedeni belirtilmelidir' });
+    }
+
+    const result = await pool.query(`
+      UPDATE payment_plans
+      SET status = 'cancelled',
+          cancellation_reason = $1,
+          cancelled_at = CURRENT_TIMESTAMP,
+          cancelled_by = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      RETURNING *
+    `, [cancellation_reason, req.user?.id || null, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Payment plan not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get cancelled payment plans
+export const getCancelledPaymentPlans = async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        pp.id,
+        pp.student_id,
+        pp.course_id,
+        s.first_name as student_first_name,
+        s.last_name as student_last_name,
+        c.name as course_name,
+        pp.total_amount,
+        pp.installments,
+        pp.installment_amount,
+        pp.status,
+        pp.start_date,
+        pp.cancellation_reason,
+        pp.cancelled_at,
+        CAST(pp.cancelled_by AS TEXT) as cancelled_by_username,
+        COALESCE(SUM(p.amount), 0) as paid_amount,
+        pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount,
+        pp.created_at
+      FROM payment_plans pp
+      INNER JOIN students s ON pp.student_id = s.id
+      LEFT JOIN courses c ON pp.course_id = c.id
+      LEFT JOIN payments p ON pp.id = p.payment_plan_id
+      WHERE pp.status = 'cancelled'
+      GROUP BY pp.id, pp.student_id, pp.course_id, s.first_name, s.last_name, c.name, pp.total_amount, pp.installments, pp.installment_amount, pp.status, pp.start_date, pp.cancellation_reason, pp.cancelled_at, pp.cancelled_by, pp.created_at
+      ORDER BY pp.cancelled_at DESC
     `);
 
     res.json(result.rows);
