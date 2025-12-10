@@ -198,16 +198,16 @@ export default function Payments() {
                   </td>
                   <td>
                     <span className={`badge badge-${
-                      plan.status === 'completed' || plan.status === 'paid' ? 'success' : 
-                      plan.status === 'cancelled' ? 'error' : 'warning'
+                      remainingAmount <= 0 ? 'success' : 
+                      paidAmount > 0 ? 'warning' : 'info'
                     }`}>
-                      {plan.status === 'completed' || plan.status === 'paid' ? 'Tamamlandı' : 
-                       plan.status === 'cancelled' ? 'İptal' : 'Devam Ediyor'}
+                      {remainingAmount <= 0 ? 'Tamamlandı' : 
+                       paidAmount > 0 ? 'Kısmi' : 'Bekliyor'}
                     </span>
                   </td>
                   {isAdmin() && (
                     <td>
-                      {plan.status !== 'completed' && plan.status !== 'paid' && (
+                      {remainingAmount > 0 && (
                         <button
                           onClick={() => openPaymentModal(plan)}
                           className="btn btn-sm btn-primary"

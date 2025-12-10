@@ -25,15 +25,19 @@ export default function Dashboard() {
         const schedulesRes = await schedulesAPI.getAll();
         const schedules = schedulesRes.data;
         
-        // Bugünün dersleri
-        const today = new Date().getDay();
-        const todaySchedules = schedules.filter(s => s.day_of_week === today);
+        // KALICI ÇÖZÜM: Sadece specific_date olan dersleri göster
+        const today = new Date().toISOString().split('T')[0];
+        const todaySchedules = schedules.filter(s => {
+          if (!s.specific_date) return false;
+          const scheduleDate = s.specific_date.split('T')[0];
+          return scheduleDate === today;
+        });
 
         setStats({
           totalStudents: 0,
           recentStudents: [],
           todaySchedules,
-          pendingPayments: []
+          todaysPayments: []
         });
       } else {
         // Admin için tüm veriler
@@ -52,9 +56,13 @@ export default function Dashboard() {
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
           .slice(0, 5);
 
-        // Get today's schedules
-        const today = new Date().getDay();
-        const todaySchedules = schedules.filter(s => s.day_of_week === today).slice(0, 5);
+        // KALICI ÇÖZÜM: Sadece specific_date olan dersleri göster
+        const today = new Date().toISOString().split('T')[0];
+        const todaySchedules = schedules.filter(s => {
+          if (!s.specific_date) return false;
+          const scheduleDate = s.specific_date.split('T')[0];
+          return scheduleDate === today;
+        }).slice(0, 5);
 
         setStats({
           totalStudents: students.length,

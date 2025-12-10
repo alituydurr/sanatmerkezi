@@ -14,6 +14,17 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [expandedSchedule, setExpandedSchedule] = useState(null);
+  
+  // Get current week's Monday
+  const getMonday = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  };
+
+  const [currentWeekStart, setCurrentWeekStart] = useState(getMonday(new Date()));
+  
   const [formData, setFormData] = useState({
     course_id: '',
     teacher_id: '',
@@ -26,9 +37,38 @@ export default function Schedule() {
 
   const daysOfWeek = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
+  // Get week dates (Monday to Sunday)
+  const getWeekDates = () => {
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(currentWeekStart);
+      date.setDate(date.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  };
+
+  const weekDates = getWeekDates();
+
+  const goToPreviousWeek = () => {
+    const newDate = new Date(currentWeekStart);
+    newDate.setDate(newDate.getDate() - 7);
+    setCurrentWeekStart(newDate);
+  };
+
+  const goToNextWeek = () => {
+    const newDate = new Date(currentWeekStart);
+    newDate.setDate(newDate.getDate() + 7);
+    setCurrentWeekStart(newDate);
+  };
+
+  const goToCurrentWeek = () => {
+    setCurrentWeekStart(getMonday(new Date()));
+  };
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentWeekStart]);
 
   const loadData = async () => {
     try {
@@ -37,6 +77,8 @@ export default function Schedule() {
         coursesAPI.getAll(),
         teachersAPI.getAll()
       ]);
+      console.log('📅 Schedules loaded:', schedulesRes.data);
+      console.log('📅 Sample schedule:', schedulesRes.data[0]);
       setSchedules(schedulesRes.data);
       setCourses(coursesRes.data);
       setTeachers(teachersRes.data);
@@ -113,6 +155,11 @@ export default function Schedule() {
 
   const groupedSchedules = groupByDay();
 
+  // Format week range
+  const weekStart = weekDates[0];
+  const weekEnd = weekDates[6];
+  const weekRange = `${weekStart.getDate()} ${weekStart.toLocaleDateString('tr-TR', { month: 'short' })} - ${weekEnd.getDate()} ${weekEnd.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' })}`;
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -120,7 +167,7 @@ export default function Schedule() {
           <h1 className="page-title">Ders Program Takvimi</h1>
           <p className="page-subtitle">Haftalık ders programını görüntüleyin</p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
           <button onClick={() => navigate('/attendance/history')} className="btn btn-secondary">
             📋 Geçmiş Kayıtlar
           </button>
@@ -132,13 +179,73 @@ export default function Schedule() {
         </div>
       </div>
 
+      {/* Week Navigation */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        padding: 'var(--space-4)',
+        background: 'var(--bg-secondary)',
+        borderRadius: 'var(--radius-lg)',
+        marginBottom: 'var(--space-4)'
+      }}>
+        <button onClick={goToPreviousWeek} className="btn btn-secondary">
+          ← Önceki Hafta
+        </button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: 'var(--space-1)' }}>
+            {weekRange}
+          </div>
+          <button onClick={goToCurrentWeek} className="btn btn-sm btn-primary">
+            Bu Hafta
+          </button>
+        </div>
+        <button onClick={goToNextWeek} className="btn btn-secondary">
+          Sonraki Hafta →
+        </button>
+      </div>
+
       <div className="schedule-grid">
-        {daysOfWeek.map((day, idx) => (
-          <div key={idx} className="schedule-day-card">
-            <h3 className="schedule-day-title">{day}</h3>
-            <div className="schedule-list">
-              {groupedSchedules[idx]?.length > 0 ? (
-                groupedSchedules[idx].map((schedule) => (
+        {weekDates.map((date, idx) => {
+          const dayOfWeek = date.getDay();
+          const dateString = date.toISOString().split('T')[0];
+          const dayName = daysOfWeek[dayOfWeek];
+          
+          // KALICI ÇÖZÜM: Sadece specific_date olan dersleri göster
+          // Normalize dates for comparison (remove time part)
+          const daySchedules = schedules.filter(s => {
+            if (!s.specific_date) return false;
+            const scheduleDate = s.specific_date.split('T')[0]; // Handle both "2024-12-09" and "2024-12-09T00:00:00"
+            return scheduleDate === dateString;
+          });
+          
+          // Debug log
+          if (idx === 0) {
+            console.log(`📅 Filtering for ${dateString}:`, daySchedules);
+            console.log('📅 All schedules:', schedules.map(s => ({ 
+              id: s.id, 
+              specific_date: s.specific_date, 
+              normalized: s.specific_date?.split('T')[0],
+              course: s.course_name 
+            })));
+          }
+
+          const isToday = dateString === new Date().toISOString().split('T')[0];
+
+          return (
+            <div key={idx} className="schedule-day-card" style={{
+              border: isToday ? '2px solid var(--primary)' : undefined
+            }}>
+              <h3 className="schedule-day-title">
+                {dayName}
+                <div style={{ fontSize: '0.875rem', fontWeight: 'normal', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  {date.getDate()} {date.toLocaleDateString('tr-TR', { month: 'long' })}
+                  {isToday && <span style={{ marginLeft: '8px', color: 'var(--primary)', fontWeight: 'bold' }}>• Bugün</span>}
+                </div>
+              </h3>
+              <div className="schedule-list">
+                {daySchedules.length > 0 ? (
+                  daySchedules.map((schedule) => (
                   <div key={schedule.id} className="schedule-item-wrapper">
                     <div className="schedule-item-compact">
                       <div className="schedule-compact-left">
@@ -213,7 +320,8 @@ export default function Schedule() {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {showModal && (

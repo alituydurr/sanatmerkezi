@@ -6,25 +6,26 @@ export const calculateTeacherHours = async (req, res, next) => {
     const { teacherId, monthYear } = req.params; // Format: 2025-10
 
     const [year, month] = monthYear.split('-');
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0);
+    const startDate = `${year}-${month.padStart(2, '0')}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
-    // Calculate total hours from schedules
+    // Calculate total hours from schedules with specific_date in this month
     const result = await pool.query(`
       SELECT 
         cs.teacher_id,
         t.first_name,
         t.last_name,
-        COUNT(DISTINCT cs.id) as total_classes,
+        COUNT(cs.id) as total_classes,
         SUM(
           EXTRACT(EPOCH FROM (cs.end_time - cs.start_time)) / 3600
-        ) as total_hours_per_week
+        ) as total_hours
       FROM course_schedules cs
       INNER JOIN teachers t ON cs.teacher_id = t.id
       WHERE cs.teacher_id = $1
-        AND cs.is_recurring = true
+        AND cs.specific_date >= $2
+        AND cs.specific_date <= $3
       GROUP BY cs.teacher_id, t.first_name, t.last_name
-    `, [teacherId]);
+    `, [teacherId, startDate, endDate]);
 
     if (result.rows.length === 0) {
       return res.json({
@@ -36,17 +37,14 @@ export const calculateTeacherHours = async (req, res, next) => {
     }
 
     const data = result.rows[0];
-    
-    // Calculate weeks in month (approximately 4)
-    const weeksInMonth = 4;
-    const totalHours = parseFloat(data.total_hours_per_week) * weeksInMonth;
+    const totalHours = parseFloat(data.total_hours || 0);
 
     res.json({
       teacher_id: teacherId,
       teacher_name: `${data.first_name} ${data.last_name}`,
       month_year: monthYear,
       total_hours: totalHours.toFixed(2),
-      total_classes: parseInt(data.total_classes) * weeksInMonth
+      total_classes: parseInt(data.total_classes)
     });
   } catch (error) {
     next(error);
