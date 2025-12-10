@@ -53,7 +53,7 @@
 .courses-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .course-item {
@@ -74,4 +74,139 @@
 .course-name {
   font-weight: 600;
   color: var(--text-primary);
+}
+
+/* Lesson Date Cards */
+.course-item-with-dates {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--bg-secondary);
+  transition: all var(--transition-base);
+}
+
+.course-item-with-dates:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--primary-300);
+}
+
+.course-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid var(--border-medium);
+}
+
+.course-header .course-name {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--primary-600);
+}
+
+.lesson-dates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: var(--space-3);
+}
+
+.lesson-date-card {
+  background: white;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 85px;
+  justify-content: center;
+}
+
+.lesson-date-card:hover {
+  border-color: var(--primary-400);
+  background: var(--primary-50);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.lesson-date {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lesson-time {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.lesson-teacher {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-top: var(--space-1);
+}
+
+/* Schedule Detail Modal */
+.schedule-detail-info {
+  background: var(--bg-secondary);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+  border-left: 4px solid var(--primary-400);
+}
+
+.schedule-detail-info .detail-row {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.schedule-detail-info .detail-row:last-child {
+  border-bottom: none;
+}
+
+.schedule-detail-info .detail-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.schedule-detail-info .detail-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .lesson-dates-grid {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+    gap: var(--space-2);
+  }
+  
+  .lesson-date-card {
+    padding: var(--space-2);
+    min-height: 75px;
+  }
+  
+  .lesson-date {
+    font-size: 0.75rem;
+  }
+  
+  .lesson-time {
+    font-size: 0.75rem;
+  }
 }

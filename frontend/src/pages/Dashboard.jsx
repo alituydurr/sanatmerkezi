@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { studentsAPI, schedulesAPI, financialAPI } from '../services/api';
+import { studentsAPI, schedulesAPI, financialAPI, eventsAPI } from '../services/api';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
 import './Dashboard.css';
 
 export default function Dashboard() {
   const { user, isTeacher } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalStudents: 0,
     recentStudents: [],
@@ -22,33 +24,53 @@ export default function Dashboard() {
     try {
       if (isTeacher()) {
         // Öğretmen için sadece kendi dersleri
-        const schedulesRes = await schedulesAPI.getAll();
+        const [schedulesRes, eventsRes] = await Promise.all([
+          schedulesAPI.getAll(),
+          eventsAPI.getAll()
+        ]);
         const schedules = schedulesRes.data;
+        const events = eventsRes.data;
         
-        // KALICI ÇÖZÜM: Sadece specific_date olan dersleri göster
-        const today = new Date().toISOString().split('T')[0];
+        // Use local date to avoid timezone issues
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
         const todaySchedules = schedules.filter(s => {
           if (!s.specific_date) return false;
           const scheduleDate = s.specific_date.split('T')[0];
           return scheduleDate === today;
         });
+        
+        // Filter today's events
+        const todayEvents = events.filter(e => {
+          if (e.status === 'cancelled') return false;
+          const eventStartDate = e.start_date.split('T')[0];
+          const eventEndDate = e.end_date.split('T')[0];
+          return today >= eventStartDate && today <= eventEndDate;
+        }).map(e => ({
+          ...e,
+          isEvent: true,
+          course_name: `🎨 ${e.name}`
+        }));
 
         setStats({
           totalStudents: 0,
           recentStudents: [],
-          todaySchedules,
+          todaySchedules: [...todaySchedules, ...todayEvents],
           todaysPayments: []
         });
       } else {
         // Admin için tüm veriler
-        const [studentsRes, schedulesRes, todaysPaymentsRes] = await Promise.all([
+        const [studentsRes, schedulesRes, eventsRes, todaysPaymentsRes] = await Promise.all([
           studentsAPI.getAll(),
           schedulesAPI.getAll(),
+          eventsAPI.getAll(),
           financialAPI.getTodaysPayments()
         ]);
 
         const students = studentsRes.data;
         const schedules = schedulesRes.data;
+        const events = eventsRes.data;
         const todaysPayments = todaysPaymentsRes.data;
 
         // Get recent students (last 5)
@@ -56,18 +78,34 @@ export default function Dashboard() {
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
           .slice(0, 5);
 
-        // KALICI ÇÖZÜM: Sadece specific_date olan dersleri göster
-        const today = new Date().toISOString().split('T')[0];
+        // Use local date to avoid timezone issues
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        
         const todaySchedules = schedules.filter(s => {
           if (!s.specific_date) return false;
           const scheduleDate = s.specific_date.split('T')[0];
           return scheduleDate === today;
         }).slice(0, 5);
+        
+        // Filter today's events
+        const todayEvents = events.filter(e => {
+          if (e.status === 'cancelled') return false;
+          const eventStartDate = e.start_date.split('T')[0];
+          const eventEndDate = e.end_date.split('T')[0];
+          return today >= eventStartDate && today <= eventEndDate;
+        }).map(e => ({
+          ...e,
+          isEvent: true,
+          course_name: `🎨 ${e.name}`,
+          start_time: e.start_time,
+          room: null
+        }));
 
         setStats({
           totalStudents: students.length,
           recentStudents,
-          todaySchedules,
+          todaySchedules: [...todaySchedules, ...todayEvents].slice(0, 10),
           todaysPayments
         });
       }
@@ -76,6 +114,14 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePaymentClick = () => {
+    navigate('/payments');
+  };
+
+  const handleTodayLessonsClick = () => {
+    navigate('/schedule', { state: { openTodayModal: true } });
   };
 
   if (loading) {
@@ -103,20 +149,77 @@ export default function Dashboard() {
 
         <div className="dashboard-grid">
           {/* Today's Lessons Card */}
-          <div className="dashboard-card card-gradient-1" style={{ gridColumn: '1 / -1' }}>
+          <div 
+            className="dashboard-card card-gradient-1" 
+            style={{ gridColumn: '1 / -1', cursor: 'pointer' }}
+            onClick={handleTodayLessonsClick}
+          >
             <div className="card-icon">📚</div>
             <div className="card-content">
               <h3 className="card-title">Bugünün Derslerim</h3>
-              <p className="card-description">Bugün vereceğiniz dersler</p>
-              <div className="card-list">
+              <p className="card-description">Bugün vereceğiniz dersler (Detaylar için tıklayın)</p>
+              <div className="card-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
                 {stats.todaySchedules.length > 0 ? (
-                  stats.todaySchedules.map((schedule, idx) => (
-                    <div key={idx} className="list-item">
-                      <span className="item-time">{schedule.start_time?.slice(0, 5)}</span>
-                      <span className="item-name">{schedule.course_name}</span>
-                      {schedule.room && <span className="badge badge-info">{schedule.room}</span>}
-                    </div>
-                  ))
+                  stats.todaySchedules.map((schedule, idx) => {
+                    // Determine schedule type for color coding
+                    let bgColor, borderColor;
+                    
+                    if (schedule.isEvent) {
+                      // Events - Purple
+                      bgColor = '#faf5ff';
+                      borderColor = '#9333ea';
+                    } else if (schedule.room && schedule.room.startsWith('RANDEVU:')) {
+                      // Appointments - Orange
+                      bgColor = '#fff7ed';
+                      borderColor = '#f97316';
+                    } else if (schedule.course_type === 'individual' || schedule.course_type === 'birebir') {
+                      // Individual lessons - Green
+                      bgColor = '#f0fdf4';
+                      borderColor = '#10b981';
+                    } else {
+                      // Group lessons - Blue (default)
+                      bgColor = '#eff6ff';
+                      borderColor = '#3b82f6';
+                    }
+                    
+                    return (
+                      <div key={idx} className="list-item" style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '12px',
+                        padding: '12px',
+                        backgroundColor: bgColor,
+                        borderLeft: `4px solid ${borderColor}`,
+                        borderRadius: '8px',
+                        marginBottom: '8px'
+                      }}>
+                        <span className="item-time" style={{ 
+                          fontSize: '1rem', 
+                          fontWeight: 'bold',
+                          minWidth: '60px',
+                          color: borderColor
+                        }}>
+                          {schedule.start_time?.slice(0, 5)}
+                        </span>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span className="item-name" style={{ fontWeight: '600' }}>
+                            {schedule.isEvent && '🎨 '}
+                            {schedule.course_name || schedule.room}
+                          </span>
+                          {schedule.room && !schedule.isEvent && (
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                              {schedule.room}
+                            </span>
+                          )}
+                        </div>
+                        {schedule.teacher_first_name && (
+                          <span className="badge badge-info">
+                            {schedule.teacher_first_name} {schedule.teacher_last_name}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
                 ) : (
                   <p className="text-secondary text-sm">Bugün ders yok</p>
                 )}
@@ -158,19 +261,77 @@ export default function Dashboard() {
 
       <div className="dashboard-grid">
         {/* Today's Lessons Card */}
-        <div className="dashboard-card card-gradient-1">
+        <div 
+          className="dashboard-card card-gradient-1"
+          style={{ cursor: 'pointer' }}
+          onClick={handleTodayLessonsClick}
+        >
           <div className="card-icon">📚</div>
           <div className="card-content">
             <h3 className="card-title">Bugünün Dersleri</h3>
-            <p className="card-description">Sonraki dersleriniz</p>
-            <div className="card-list">
+            <p className="card-description">Sonraki dersleriniz (Detaylar için tıklayın)</p>
+            <div className="card-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
               {stats.todaySchedules.length > 0 ? (
-                stats.todaySchedules.map((schedule, idx) => (
-                  <div key={idx} className="list-item">
-                    <span className="item-time">{schedule.start_time?.slice(0, 5)}</span>
-                    <span className="item-name">{schedule.course_name}</span>
-                  </div>
-                ))
+                stats.todaySchedules.map((schedule, idx) => {
+                  // Determine schedule type for color coding
+                  let bgColor, borderColor;
+                  
+                  if (schedule.isEvent) {
+                    // Events - Purple
+                    bgColor = '#faf5ff';
+                    borderColor = '#9333ea';
+                  } else if (schedule.room && schedule.room.startsWith('RANDEVU:')) {
+                    // Appointments - Orange
+                    bgColor = '#fff7ed';
+                    borderColor = '#f97316';
+                  } else if (schedule.course_type === 'individual' || schedule.course_type === 'birebir') {
+                    // Individual lessons - Green
+                    bgColor = '#f0fdf4';
+                    borderColor = '#10b981';
+                  } else {
+                    // Group lessons - Blue (default)
+                    bgColor = '#eff6ff';
+                    borderColor = '#3b82f6';
+                  }
+                  
+                  return (
+                    <div key={idx} className="list-item" style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '12px',
+                      padding: '12px',
+                      backgroundColor: bgColor,
+                      borderLeft: `4px solid ${borderColor}`,
+                      borderRadius: '8px',
+                      marginBottom: '8px'
+                    }}>
+                      <span className="item-time" style={{ 
+                        fontSize: '1rem', 
+                        fontWeight: 'bold',
+                        minWidth: '60px',
+                        color: borderColor
+                      }}>
+                        {schedule.start_time?.slice(0, 5)}
+                      </span>
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span className="item-name" style={{ fontWeight: '600' }}>
+                          {schedule.isEvent && '🎨 '}
+                          {schedule.course_name || schedule.room}
+                        </span>
+                        {schedule.room && !schedule.isEvent && (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                            {schedule.room}
+                          </span>
+                        )}
+                      </div>
+                      {schedule.teacher_first_name && (
+                        <span className="badge badge-info">
+                          {schedule.teacher_first_name} {schedule.teacher_last_name}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-secondary text-sm">Bugün ders yok</p>
               )}
@@ -184,7 +345,7 @@ export default function Dashboard() {
           <div className="card-content">
             <h3 className="card-title">Son Kayıtlar</h3>
             <p className="card-description">Yeni eklenen öğrenciler</p>
-            <div className="card-list">
+            <div className="card-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
               {stats.recentStudents.length > 0 ? (
                 stats.recentStudents.map((student) => (
                   <div key={student.id} className="list-item">
@@ -219,20 +380,40 @@ export default function Dashboard() {
           <div className="card-icon">💰</div>
           <div className="card-content">
             <h3 className="card-title">Bugünün Ödemeleri</h3>
-            <p className="card-description">Bugün alınması gereken ödemeler</p>
-            <div className="card-list">
+            <p className="card-description">Bugün alınan ve alınması gereken ödemeler</p>
+            <div className="card-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
               {stats.todaysPayments.length > 0 ? (
                 stats.todaysPayments.map((payment, idx) => (
-                  <div key={idx} className="list-item">
+                  <div 
+                    key={idx} 
+                    className="list-item"
+                    onClick={handlePaymentClick}
+                    style={{ 
+                      backgroundColor: payment.paid ? '#d1fae5' : '#fee2e2',
+                      borderLeft: payment.paid ? '3px solid var(--success)' : '3px solid var(--error)',
+                      paddingLeft: 'calc(var(--space-2) - 3px)',
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s, box-shadow 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateX(4px)';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateX(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span className="item-name">
+                      <span className="item-name" style={{ color: payment.paid ? 'var(--success)' : 'var(--error)' }}>
+                        {payment.paid ? '✓ ' : '⚠ '}
                         {payment.type === 'student' ? payment.name : payment.name}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {payment.type === 'student' ? payment.course_name : `Etkinlik: ${payment.event_type}`}
                       </span>
                     </div>
-                    <span className="item-amount">
+                    <span className="item-amount" style={{ color: payment.paid ? 'var(--success)' : 'var(--error)', fontWeight: 'bold' }}>
                       {formatCurrencyWithSymbol(payment.amount)}
                     </span>
                   </div>

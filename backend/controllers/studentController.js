@@ -259,3 +259,37 @@ export const removeStudentFromCourse = async (req, res, next) => {
     next(error);
   }
 };
+
+// Get student's scheduled lessons
+export const getStudentSchedules = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT 
+        cs.id,
+        cs.specific_date,
+        cs.day_of_week,
+        cs.start_time,
+        cs.end_time,
+        cs.room,
+        c.id as course_id,
+        c.name as course_name,
+        c.course_type,
+        t.id as teacher_id,
+        t.first_name as teacher_first_name,
+        t.last_name as teacher_last_name
+      FROM course_schedules cs
+      INNER JOIN courses c ON cs.course_id = c.id
+      LEFT JOIN teachers t ON cs.teacher_id = t.id
+      WHERE cs.student_id = $1
+        AND cs.specific_date IS NOT NULL
+        AND cs.specific_date >= CURRENT_DATE
+      ORDER BY cs.specific_date ASC, cs.start_time ASC
+    `, [id]);
+    
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};

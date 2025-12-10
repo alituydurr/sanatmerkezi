@@ -8,7 +8,10 @@ export const getAllSchedules = async (req, res, next) => {
 
     if (req.user.role === 'admin') {
       query = `
-        SELECT cs.*,
+        SELECT cs.id, cs.course_id, cs.teacher_id, cs.day_of_week, 
+               cs.start_time, cs.end_time, cs.start_date, cs.end_date,
+               cs.is_recurring, cs.room, cs.notes, cs.created_at, cs.updated_at,
+               cs.specific_date::text as specific_date,
           c.name as course_name,
           c.course_type,
           t.first_name as teacher_first_name,
@@ -19,7 +22,7 @@ export const getAllSchedules = async (req, res, next) => {
             'last_name', s.last_name
           )) FILTER (WHERE s.id IS NOT NULL) as students
         FROM course_schedules cs
-        INNER JOIN courses c ON cs.course_id = c.id
+        LEFT JOIN courses c ON cs.course_id = c.id
         LEFT JOIN teachers t ON cs.teacher_id = t.id
         LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.status = 'active'
         LEFT JOIN students s ON sc.student_id = s.id
@@ -29,7 +32,10 @@ export const getAllSchedules = async (req, res, next) => {
     } else {
       // Teacher can only see their own schedules
       query = `
-        SELECT cs.*,
+        SELECT cs.id, cs.course_id, cs.teacher_id, cs.day_of_week, 
+               cs.start_time, cs.end_time, cs.start_date, cs.end_date,
+               cs.is_recurring, cs.room, cs.notes, cs.created_at, cs.updated_at,
+               cs.specific_date::text as specific_date,
           c.name as course_name,
           c.course_type,
           t.first_name as teacher_first_name,
@@ -91,6 +97,7 @@ export const createSchedule = async (req, res, next) => {
     const {
       course_id,
       teacher_id,
+      student_id,
       day_of_week,
       start_time,
       end_time,
@@ -110,12 +117,12 @@ export const createSchedule = async (req, res, next) => {
     
     const result = await pool.query(`
       INSERT INTO course_schedules (
-        course_id, teacher_id, day_of_week, start_time, end_time,
+        course_id, teacher_id, student_id, day_of_week, start_time, end_time,
         start_date, end_date, specific_date, is_recurring, room, notes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
-    `, [course_id, teacher_id, day_of_week, start_time, end_time, start_date, end_date, specific_date, is_recurring, room, notes]);
+    `, [course_id, teacher_id, student_id, day_of_week, start_time, end_time, start_date, end_date, specific_date, is_recurring, room, notes]);
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -135,6 +142,7 @@ export const updateSchedule = async (req, res, next) => {
       end_time,
       start_date,
       end_date,
+      specific_date,
       is_recurring,
       room,
       notes
@@ -149,13 +157,14 @@ export const updateSchedule = async (req, res, next) => {
           end_time = COALESCE($5, end_time),
           start_date = COALESCE($6, start_date),
           end_date = COALESCE($7, end_date),
-          is_recurring = COALESCE($8, is_recurring),
-          room = COALESCE($9, room),
-          notes = COALESCE($10, notes),
+          specific_date = COALESCE($8, specific_date),
+          is_recurring = COALESCE($9, is_recurring),
+          room = COALESCE($10, room),
+          notes = COALESCE($11, notes),
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+      WHERE id = $12
       RETURNING *
-    `, [course_id, teacher_id, day_of_week, start_time, end_time, start_date, end_date, is_recurring, room, notes, id]);
+    `, [course_id, teacher_id, day_of_week, start_time, end_time, start_date, end_date, specific_date, is_recurring, room, notes, id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Schedule not found' });

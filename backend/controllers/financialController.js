@@ -13,13 +13,12 @@ export const getFinancialSummary = async (req, res, next) => {
     const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0)
       .toISOString().split('T')[0];
 
-    // Get student payments (income) for the month - exclude cancelled
+    // Get student payments (income) for the month
+    // Note: We count all payments, even from cancelled plans, because paid money is real income
     const studentPayments = await pool.query(`
       SELECT COALESCE(SUM(p.amount), 0) as total
       FROM payments p
-      INNER JOIN payment_plans pp ON p.payment_plan_id = pp.id
       WHERE DATE(p.payment_date) BETWEEN $1 AND $2
-        AND pp.status != 'cancelled'
     `, [startDate, endDate]);
 
     // Get event payments (income) for the month - exclude cancelled events
@@ -104,20 +103,21 @@ export const getFinancialReport = async (req, res, next) => {
     const endDate = new Date(new Date(startDate).getFullYear(), new Date(startDate).getMonth() + 1, 0)
       .toISOString().split('T')[0];
 
-    // Student payments breakdown - exclude cancelled
+
+    // Student payments breakdown
+    // Note: All actual payments are income, regardless of plan status
     const studentPaymentsDetail = await pool.query(`
       SELECT 
-        s.first_name || ' ' || s.last_name as student_name,
+        COALESCE(s.first_name || ' ' || s.last_name, pp.student_name || ' ' || pp.student_surname) as student_name,
         c.name as course_name,
         p.amount,
         p.payment_date,
         p.payment_method
       FROM payments p
-      INNER JOIN students s ON p.student_id = s.id
       INNER JOIN payment_plans pp ON p.payment_plan_id = pp.id
+      LEFT JOIN students s ON p.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       WHERE DATE(p.payment_date) BETWEEN $1 AND $2
-        AND pp.status != 'cancelled'
       ORDER BY p.payment_date DESC
     `, [startDate, endDate]);
 
@@ -175,39 +175,65 @@ export const getFinancialReport = async (req, res, next) => {
   }
 };
 
-// Get today's expected payments
+// Get today's expected and received payments
 export const getTodaysPayments = async (req, res, next) => {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // Get student payments due today
-    const studentPayments = await pool.query(`
+    // Get student payments due today (expected)
+    // Exclude payment plans that have received a payment today
+    const studentPaymentsDue = await pool.query(`
       SELECT 
         pp.id,
-        s.first_name || ' ' || s.last_name as name,
+        COALESCE(s.first_name || ' ' || s.last_name, pp.student_name || ' ' || pp.student_surname) as name,
         'student' as type,
         c.name as course_name,
         pp.installment_amount as amount,
-        pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount
+        pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount,
+        false as paid
       FROM payment_plans pp
-      INNER JOIN students s ON pp.student_id = s.id
+      LEFT JOIN students s ON pp.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       WHERE pp.status = 'active'
         AND pp.installment_dates::jsonb ? $1
+        AND NOT EXISTS (
+          SELECT 1 FROM payments p2 
+          WHERE p2.payment_plan_id = pp.id 
+          AND DATE(p2.payment_date) = $1::date
+        )
       GROUP BY pp.id, s.id, c.id
       HAVING pp.total_amount - COALESCE(SUM(p.amount), 0) > 0
     `, [today]);
 
-    // Get events happening today
-    const eventPayments = await pool.query(`
+    // Get student payments received today
+    const studentPaymentsReceived = await pool.query(`
+      SELECT 
+        p.id,
+        COALESCE(s.first_name || ' ' || s.last_name, pp.student_name || ' ' || pp.student_surname) as name,
+        'student' as type,
+        c.name as course_name,
+        p.amount,
+        0 as remaining_amount,
+        true as paid
+      FROM payments p
+      INNER JOIN payment_plans pp ON p.payment_plan_id = pp.id
+      LEFT JOIN students s ON p.student_id = s.id
+      LEFT JOIN courses c ON pp.course_id = c.id
+      WHERE DATE(p.payment_date) = $1
+      ORDER BY p.payment_date DESC
+    `, [today]);
+
+    // Get events happening today (expected)
+    const eventPaymentsDue = await pool.query(`
       SELECT 
         e.id,
         e.name,
         'event' as type,
         e.event_type,
         e.price as amount,
-        e.price - COALESCE(SUM(ee.paid_amount), 0) as remaining_amount
+        e.price - COALESCE(SUM(ee.paid_amount), 0) as remaining_amount,
+        false as paid
       FROM events e
       LEFT JOIN event_enrollments ee ON e.id = ee.event_id
       WHERE DATE(e.start_date) = $1
@@ -216,7 +242,14 @@ export const getTodaysPayments = async (req, res, next) => {
       HAVING e.price - COALESCE(SUM(ee.paid_amount), 0) > 0
     `, [today]);
 
-    res.json([...studentPayments.rows, ...eventPayments.rows]);
+    // Combine all payments - show pending first (urgent), then received
+    const allPayments = [
+      ...studentPaymentsDue.rows,       // Pending student payments (urgent)
+      ...eventPaymentsDue.rows,         // Pending event payments (urgent)
+      ...studentPaymentsReceived.rows   // Received payments (completed)
+    ];
+
+    res.json(allPayments);
   } catch (error) {
     next(error);
   }

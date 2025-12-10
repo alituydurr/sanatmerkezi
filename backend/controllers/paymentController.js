@@ -11,8 +11,8 @@ export const getAllPaymentPlans = async (req, res, next) => {
         pp.course_id,
         NULL as event_id,
         'course' as payment_type,
-        s.first_name as student_first_name,
-        s.last_name as student_last_name,
+        COALESCE(s.first_name, pp.student_name) as student_first_name,
+        COALESCE(s.last_name, pp.student_surname) as student_last_name,
         c.name as item_name,
         pp.total_amount,
         pp.installments,
@@ -23,7 +23,7 @@ export const getAllPaymentPlans = async (req, res, next) => {
         pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount,
         pp.created_at
       FROM payment_plans pp
-      INNER JOIN students s ON pp.student_id = s.id
+      LEFT JOIN students s ON pp.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       WHERE pp.status != 'cancelled'
@@ -72,7 +72,7 @@ export const getUpcomingPayments = async (req, res, next) => {
       SELECT 
         pp.id,
         pp.student_id,
-        s.first_name || ' ' || s.last_name as student_name,
+        COALESCE(s.first_name || ' ' || s.last_name, pp.student_name || ' ' || pp.student_surname) as student_name,
         c.name as course_name,
         pp.installment_dates,
         pp.installment_amount,
@@ -80,7 +80,7 @@ export const getUpcomingPayments = async (req, res, next) => {
         COALESCE(SUM(p.amount), 0) as paid_amount,
         pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount
       FROM payment_plans pp
-      INNER JOIN students s ON pp.student_id = s.id
+      LEFT JOIN students s ON pp.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       WHERE pp.status = 'active'
@@ -164,8 +164,8 @@ export const recordPayment = async (req, res, next) => {
   try {
     const { payment_plan_id, student_id, amount, payment_method, payment_date, notes } = req.body;
 
-    if (!payment_plan_id || !student_id || !amount) {
-      return res.status(400).json({ error: 'Payment plan ID, student ID, and amount are required' });
+    if (!payment_plan_id || !amount) {
+      return res.status(400).json({ error: 'Payment plan ID and amount are required' });
     }
 
     // Get payment plan
@@ -179,6 +179,9 @@ export const recordPayment = async (req, res, next) => {
     }
 
     const plan = planResult.rows[0];
+    
+    // Use student_id from payment_plan if not provided in request
+    const finalStudentId = student_id || plan.student_id;
 
     // Calculate current paid amount
     const paidResult = await pool.query(
@@ -193,7 +196,7 @@ export const recordPayment = async (req, res, next) => {
       INSERT INTO payments (payment_plan_id, student_id, amount, payment_date, payment_method, notes)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [payment_plan_id, student_id, amount, payment_date || new Date(), payment_method, notes]);
+    `, [payment_plan_id, finalStudentId, amount, payment_date || new Date(), payment_method, notes]);
 
     // Update plan status if fully paid
     if (totalPaid >= parseFloat(plan.total_amount)) {
@@ -235,11 +238,11 @@ export const getPendingPayments = async (req, res, next) => {
   try {
     const result = await pool.query(`
       SELECT pp.*,
-        s.first_name || ' ' || s.last_name as student_name,
+        COALESCE(s.first_name || ' ' || s.last_name, pp.student_name || ' ' || pp.student_surname) as student_name,
         c.name as course_name,
         pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount
       FROM payment_plans pp
-      INNER JOIN students s ON pp.student_id = s.id
+      LEFT JOIN students s ON pp.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       WHERE pp.status = 'active'
@@ -293,8 +296,8 @@ export const getCancelledPaymentPlans = async (req, res, next) => {
         pp.id,
         pp.student_id,
         pp.course_id,
-        s.first_name as student_first_name,
-        s.last_name as student_last_name,
+        COALESCE(s.first_name, pp.student_name) as student_first_name,
+        COALESCE(s.last_name, pp.student_surname) as student_last_name,
         c.name as course_name,
         pp.total_amount,
         pp.installments,
@@ -308,11 +311,11 @@ export const getCancelledPaymentPlans = async (req, res, next) => {
         pp.total_amount - COALESCE(SUM(p.amount), 0) as remaining_amount,
         pp.created_at
       FROM payment_plans pp
-      INNER JOIN students s ON pp.student_id = s.id
+      LEFT JOIN students s ON pp.student_id = s.id
       LEFT JOIN courses c ON pp.course_id = c.id
       LEFT JOIN payments p ON pp.id = p.payment_plan_id
       WHERE pp.status = 'cancelled'
-      GROUP BY pp.id, pp.student_id, pp.course_id, s.first_name, s.last_name, c.name, pp.total_amount, pp.installments, pp.installment_amount, pp.status, pp.start_date, pp.cancellation_reason, pp.cancelled_at, pp.cancelled_by, pp.created_at
+      GROUP BY pp.id, pp.student_id, pp.course_id, s.first_name, s.last_name, c.name, pp.total_amount, pp.installments, pp.installment_amount, pp.status, pp.start_date, pp.cancellation_reason, pp.cancelled_at, pp.cancelled_by, pp.created_at, pp.student_name, pp.student_surname
       ORDER BY pp.cancelled_at DESC
     `);
 

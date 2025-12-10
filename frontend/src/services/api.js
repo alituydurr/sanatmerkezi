@@ -47,6 +47,7 @@ export const authAPI = {
 export const studentsAPI = {
   getAll: () => api.get('/students'),
   getById: (id) => api.get(`/students/${id}`),
+  getSchedules: (id) => api.get(`/students/${id}/schedules`),
   create: (data) => api.post('/students', data),
   update: (id, data) => api.put(`/students/${id}`, data),
   delete: (id) => api.delete(`/students/${id}`),
@@ -140,6 +141,13 @@ export const financialAPI = {
   getSummary: (monthYear) => api.get('/financial/summary', { params: { month_year: monthYear } }),
   getReport: (monthYear) => api.get('/financial/report', { params: { month_year: monthYear } }),
   getTodaysPayments: () => api.get('/financial/todays-payments')
+};
+
+// Appointments API
+export const appointmentsAPI = {
+  create: (data) => api.post('/appointments', data),
+  getAll: () => api.get('/appointments'),
+  delete: (id) => api.delete(`/appointments/${id}`)
 };
 
 export default api;

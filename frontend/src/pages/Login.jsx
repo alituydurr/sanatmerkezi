@@ -37,8 +37,10 @@ export default function Login() {
 
       <div className="login-card">
         <div className="login-header">
-          <div className="login-logo">🎨</div>
-          <h1 className="login-title">Sanat Merkezi</h1>
+          <div className="login-logo">
+            <img src="/unzile-logo.png" alt="ÜnzileArt Logo" style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+          </div>
+          <h1 className="login-title">ÜnzileArt Sanat Merkezi</h1>
           <p className="login-subtitle">Yönetim Paneline Hoş Geldiniz</p>
         </div>
 

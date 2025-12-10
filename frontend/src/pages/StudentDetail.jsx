@@ -12,14 +12,23 @@ export default function StudentDetail() {
   const [student, setStudent] = useState(null);
   const [courses, setCourses] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [studentSchedules, setStudentSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showScheduleDetailModal, setShowScheduleDetailModal] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [scheduleForm, setScheduleForm] = useState({
     course_id: '',
     teacher_id: '',
     start_date: '',
     end_date: '',
     selected_days: [], // [0, 1, 2, 3, 4, 5, 6] for selected days
+    start_time: '',
+    end_time: '',
+    room: ''
+  });
+  const [scheduleEditForm, setScheduleEditForm] = useState({
+    specific_date: '',
     start_time: '',
     end_time: '',
     room: ''
@@ -33,14 +42,16 @@ export default function StudentDetail() {
 
   const loadData = async () => {
     try {
-      const [studentRes, coursesRes, teachersRes] = await Promise.all([
+      const [studentRes, coursesRes, teachersRes, schedulesRes] = await Promise.all([
         studentsAPI.getById(id),
         coursesAPI.getAll(),
-        teachersAPI.getAll()
+        teachersAPI.getAll(),
+        studentsAPI.getSchedules(id)
       ]);
       setStudent(studentRes.data);
       setCourses(coursesRes.data);
       setTeachers(teachersRes.data);
+      setStudentSchedules(schedulesRes.data);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -71,6 +82,7 @@ export default function StudentDetail() {
           schedulesToCreate.push({
             course_id: scheduleForm.course_id,
             teacher_id: scheduleForm.teacher_id,
+            student_id: student.id, // Link schedule to this specific student
             specific_date: date.toISOString().split('T')[0],
             day_of_week: dayOfWeek,
             start_time: scheduleForm.start_time,
@@ -81,14 +93,14 @@ export default function StudentDetail() {
         }
       }
 
-      // Create all schedules
-      await Promise.all(schedulesToCreate.map(schedule => schedulesAPI.create(schedule)));
-
-      // Enroll student in course if not already enrolled
+      // Enroll student in course FIRST (before creating schedules)
       const isEnrolled = student.courses?.some(c => c.id === parseInt(scheduleForm.course_id));
       if (!isEnrolled) {
         await studentsAPI.enrollInCourse(student.id, scheduleForm.course_id);
       }
+
+      // Then create all schedules
+      await Promise.all(schedulesToCreate.map(schedule => schedulesAPI.create(schedule)));
 
       alert(`${schedulesToCreate.length} ders başarıyla eklendi!`);
       setShowScheduleModal(false);
@@ -117,6 +129,57 @@ export default function StudentDetail() {
         : [...prev.selected_days, dayIndex]
     }));
   };
+
+  const openScheduleDetail = (schedule) => {
+    setSelectedSchedule(schedule);
+    setScheduleEditForm({
+      specific_date: schedule.specific_date,
+      start_time: schedule.start_time,
+      end_time: schedule.end_time,
+      room: schedule.room || ''
+    });
+    setShowScheduleDetailModal(true);
+  };
+
+  const handleScheduleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      await schedulesAPI.update(selectedSchedule.id, scheduleEditForm);
+      alert('Ders başarıyla güncellendi!');
+      setShowScheduleDetailModal(false);
+      loadData();
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      alert('Ders güncellenirken hata oluştu');
+    }
+  };
+
+  const handleScheduleCancel = async () => {
+    if (!window.confirm('Bu dersi iptal etmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
+    
+    try {
+      await schedulesAPI.delete(selectedSchedule.id);
+      alert('Ders iptal edildi');
+      setShowScheduleDetailModal(false);
+      loadData();
+    } catch (error) {
+      console.error('Error canceling schedule:', error);
+      alert('Ders iptal edilirken hata oluştu');
+    }
+  };
+
+  // Group schedules by course
+  const groupedSchedules = studentSchedules.reduce((acc, schedule) => {
+    if (!acc[schedule.course_id]) {
+      acc[schedule.course_id] = {
+        course_name: schedule.course_name,
+        course_type: schedule.course_type,
+        schedules: []
+      };
+    }
+    acc[schedule.course_id].schedules.push(schedule);
+    return acc;
+  }, {});
 
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
@@ -173,22 +236,49 @@ export default function StudentDetail() {
           </div>
         </div>
 
-        {/* Enrolled Courses Card */}
-        <div className="detail-card">
-          <h3 className="detail-card-title">Kayıtlı Dersler</h3>
-          {student.courses && student.courses.length > 0 ? (
+        {/* Enrolled Courses with Lesson Dates */}
+        <div className="detail-card" style={{ gridColumn: '1 / -1' }}>
+          <h3 className="detail-card-title">Kayıtlı Dersler ve Tarihler</h3>
+          {Object.keys(groupedSchedules).length > 0 ? (
             <div className="courses-list">
-              {student.courses.map((course) => (
-                <div key={course.id} className="course-item">
-                  <div className="course-name">{course.name}</div>
-                  <span className={`badge badge-${course.enrollment_status === 'active' ? 'success' : 'warning'}`}>
-                    {course.enrollment_status === 'active' ? 'Aktif' : course.enrollment_status}
-                  </span>
+              {Object.entries(groupedSchedules).map(([courseId, courseData]) => (
+                <div key={courseId} className="course-item-with-dates">
+                  <div className="course-header">
+                    <div className="course-name">{courseData.course_name}</div>
+                    <span className="badge badge-info">
+                      {courseData.schedules.length} ders planlandı
+                    </span>
+                  </div>
+                  
+                  {/* Lesson Dates Grid */}
+                  <div className="lesson-dates-grid">
+                    {courseData.schedules.map((schedule) => (
+                      <div
+                        key={schedule.id}
+                        className="lesson-date-card"
+                        onClick={() => openScheduleDetail(schedule)}
+                        title="Detaylar için tıklayın"
+                      >
+                        <div className="lesson-date">
+                          {new Date(schedule.specific_date).toLocaleDateString('tr-TR', {
+                            day: '2-digit',
+                            month: 'short'
+                          }).toUpperCase()}
+                        </div>
+                        <div className="lesson-time">
+                          {schedule.start_time?.slice(0, 5)}
+                        </div>
+                        <div className="lesson-teacher">
+                          {schedule.teacher_first_name?.[0]}.{schedule.teacher_last_name?.[0]}.
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-secondary">Henüz kayıtlı ders yok</p>
+            <p className="text-secondary">Henüz planlanmış ders yok</p>
           )}
         </div>
 
@@ -236,7 +326,7 @@ export default function StudentDetail() {
         </div>
       </div>
 
-      {/* Schedule Modal */}
+      {/* Add Schedule Modal */}
       {showScheduleModal && (
         <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -367,6 +457,103 @@ export default function StudentDetail() {
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Kaydet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Detail Modal */}
+      {showScheduleDetailModal && selectedSchedule && (
+        <div className="modal-overlay" onClick={() => setShowScheduleDetailModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Ders Detayı ve Düzenleme</h2>
+            
+            <div className="schedule-detail-info">
+              <div className="detail-row">
+                <span className="detail-label">Ders:</span>
+                <span className="detail-value">{selectedSchedule.course_name}</span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Öğretmen:</span>
+                <span className="detail-value">
+                  {selectedSchedule.teacher_first_name} {selectedSchedule.teacher_last_name}
+                </span>
+              </div>
+              <div className="detail-row">
+                <span className="detail-label">Güncel Tarih:</span>
+                <span className="detail-value">
+                  {new Date(selectedSchedule.specific_date).toLocaleDateString('tr-TR', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+            </div>
+            
+            <form onSubmit={handleScheduleUpdate}>
+              <div className="form-group">
+                <label className="form-label">Yeni Tarih</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={scheduleEditForm.specific_date}
+                  onChange={(e) => setScheduleEditForm({...scheduleEditForm, specific_date: e.target.value})}
+                />
+                <small style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                  Sadece bu dersin tarihi değişecek, diğer haftalar etkilenmeyecek
+                </small>
+              </div>
+              
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Başlangıç Saati</label>
+                  <input
+                    type="time"
+                    className="form-input"
+                    value={scheduleEditForm.start_time}
+                    onChange={(e) => setScheduleEditForm({...scheduleEditForm, start_time: e.target.value})}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Bitiş Saati</label>
+                  <input
+                    type="time"
+                    className="form-input"
+                    value={scheduleEditForm.end_time}
+                    onChange={(e) => setScheduleEditForm({...scheduleEditForm, end_time: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="form-group">
+                <label className="form-label">Oda</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={scheduleEditForm.room}
+                  onChange={(e) => setScheduleEditForm({...scheduleEditForm, room: e.target.value})}
+                  placeholder="Örn: Salon 1"
+                />
+              </div>
+              
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  onClick={handleScheduleCancel}
+                  className="btn btn-error"
+                  style={{ marginRight: 'auto' }}
+                >
+                  🗑️ Dersi İptal Et
+                </button>
+                <button type="button" onClick={() => setShowScheduleDetailModal(false)} className="btn btn-secondary">
+                  Kapat
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  💾 Güncelle
                 </button>
               </div>
             </form>

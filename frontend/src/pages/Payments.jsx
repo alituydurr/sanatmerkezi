@@ -120,6 +120,7 @@ export default function Payments() {
   const openCancelModal = (plan) => {
     setSelectedPlan(plan);
     setCancelReason('');
+    setShowPaymentModal(false); // Close payment modal if open
     setShowCancelModal(true);
   };
 
@@ -243,23 +244,14 @@ export default function Payments() {
                   </td>
                   {isAdmin() && (
                     <td>
-                      <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                        {remainingAmount > 0 && (
-                          <button
-                            onClick={() => openPaymentModal(plan)}
-                            className="btn btn-sm btn-primary"
-                          >
-                            Ödeme Kaydet
-                          </button>
-                        )}
+                      {remainingAmount > 0 && (
                         <button
-                          onClick={() => openCancelModal(plan)}
-                          className="btn btn-sm btn-secondary"
-                          style={{ backgroundColor: 'var(--error)', borderColor: 'var(--error)' }}
+                          onClick={() => openPaymentModal(plan)}
+                          className="btn btn-sm btn-primary"
                         >
-                          İptal Et
+                          Ödeme Kaydet
                         </button>
-                      </div>
+                      )}
                     </td>
                   )}
                 </tr>
@@ -419,13 +411,27 @@ export default function Payments() {
                   rows="2"
                 />
               </div>
-              <div className="modal-actions">
-                <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary">
-                  İptal
+              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button 
+                  type="button" 
+                  onClick={() => openCancelModal(selectedPlan)} 
+                  className="btn btn-sm"
+                  style={{ 
+                    backgroundColor: 'var(--error)', 
+                    borderColor: 'var(--error)',
+                    color: 'white'
+                  }}
+                >
+                  ❌ Kalan Tutarı İptal Et
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Ödemeyi Kaydet
-                </button>
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary">
+                    İptal
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Ödemeyi Kaydet
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -435,21 +441,27 @@ export default function Payments() {
       {showCancelModal && selectedPlan && (
         <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Ödeme Planını İptal Et</h2>
+            <h2 className="modal-title">Kalan Tutarı İptal Et</h2>
             <div className="mb-4" style={{ padding: 'var(--space-4)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
               {selectedPlan.payment_type === 'event' ? (
                 <>
                   <p><strong>Etkinlik:</strong> {selectedPlan.item_name}</p>
                   <p><strong>Toplam Tutar:</strong> {formatCurrencyWithSymbol(selectedPlan.total_amount)}</p>
+                  <p><strong>Ödenen:</strong> <span style={{ color: 'var(--success)' }}>{formatCurrencyWithSymbol(selectedPlan.paid_amount || 0)}</span></p>
+                  <p><strong>İptal Edilecek Tutar:</strong> <span style={{ color: 'var(--error)' }}>{formatCurrencyWithSymbol(selectedPlan.remaining_amount)}</span></p>
                 </>
               ) : (
                 <>
                   <p><strong>Öğrenci:</strong> {selectedPlan.student_first_name} {selectedPlan.student_last_name}</p>
                   <p><strong>Ders:</strong> {selectedPlan.item_name || selectedPlan.course_name}</p>
                   <p><strong>Toplam Tutar:</strong> {formatCurrencyWithSymbol(selectedPlan.total_amount)}</p>
-                  <p><strong>Ödenen:</strong> {formatCurrencyWithSymbol(selectedPlan.paid_amount || 0)}</p>
+                  <p><strong>Ödenen:</strong> <span style={{ color: 'var(--success)' }}>{formatCurrencyWithSymbol(selectedPlan.paid_amount || 0)}</span></p>
+                  <p><strong>İptal Edilecek Tutar:</strong> <span style={{ color: 'var(--error)' }}>{formatCurrencyWithSymbol(selectedPlan.remaining_amount)}</span></p>
                 </>
               )}
+              <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-2)', background: '#fef3c7', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>
+                ℹ️ <strong>Not:</strong> Sadece kalan tutar iptal edilecektir. Ödenen tutar gelir olarak kaydedilmiş olarak kalacaktır.
+              </div>
             </div>
             <form onSubmit={handleCancelPlan}>
               <div className="form-group">

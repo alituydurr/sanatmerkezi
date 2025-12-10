@@ -23,8 +23,8 @@ export default function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="logo">
-          <span className="logo-icon">🎨</span>
-          <h2 className="logo-text">Sanat Merkezi</h2>
+          <img src="/unzile-logo.png" alt="ÜnzileArt Logo" className="logo-image" />
+          <h2 className="logo-text">ÜnzileArt</h2>
         </div>
       </div>
 

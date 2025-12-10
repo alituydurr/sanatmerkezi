@@ -66,6 +66,29 @@
   box-shadow: var(--shadow-2xl);
 }
 
+.dashboard-card[style*="cursor: pointer"]:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.dashboard-card[style*="cursor: pointer"]::after {
+  content: '👆 Tıklayın';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.dashboard-card[style*="cursor: pointer"]:hover::after {
+  opacity: 1;
+}
+
 .card-icon {
   font-size: 3rem;
   margin-bottom: var(--space-4);
