@@ -7,7 +7,8 @@ import {
   deleteStudent,
   enrollStudentInCourse,
   removeStudentFromCourse,
-  getStudentSchedules
+  getStudentSchedules,
+  updateAllStudentsStatus
 } from '../controllers/studentController.js';
 import { verifyToken, requireAdmin, requireTeacherOrAdmin } from '../middleware/auth.js';
 
@@ -17,6 +18,7 @@ router.get('/', verifyToken, requireTeacherOrAdmin, getAllStudents);
 router.get('/:id', verifyToken, requireTeacherOrAdmin, getStudentById);
 router.get('/:id/schedules', verifyToken, requireTeacherOrAdmin, getStudentSchedules);
 router.post('/', verifyToken, requireAdmin, createStudent);
+router.post('/update-all-status', verifyToken, requireAdmin, updateAllStudentsStatus);
 router.put('/:id', verifyToken, requireAdmin, updateStudent);
 router.delete('/:id', verifyToken, requireAdmin, deleteStudent);
 router.post('/enroll', verifyToken, requireAdmin, enrollStudentInCourse);

@@ -293,3 +293,57 @@ export const getStudentSchedules = async (req, res, next) => {
     next(error);
   }
 };
+
+// Update all students' status based on their schedules (utility endpoint)
+export const updateAllStudentsStatus = async (req, res, next) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Get all students
+    const students = await pool.query('SELECT id FROM students');
+    
+    let updated = 0;
+    for (const student of students.rows) {
+      const studentId = student.id;
+
+      // Check if student has any schedules
+      const allSchedules = await pool.query(
+        'SELECT COUNT(*) as total FROM course_schedules WHERE student_id = $1',
+        [studentId]
+      );
+
+      const totalSchedules = parseInt(allSchedules.rows[0].total);
+
+      // Check if student has future schedules
+      const futureSchedules = await pool.query(
+        'SELECT COUNT(*) as total FROM course_schedules WHERE student_id = $1 AND specific_date >= $2',
+        [studentId, today]
+      );
+
+      const futureLessons = parseInt(futureSchedules.rows[0].total);
+
+      let newStatus;
+      if (totalSchedules === 0) {
+        newStatus = 'inactive'; // No lessons at all
+      } else if (futureLessons === 0) {
+        newStatus = 'completed'; // All lessons are in the past
+      } else {
+        newStatus = 'active'; // Has future lessons
+      }
+
+      // Update student status
+      await pool.query(
+        'UPDATE students SET status = $1 WHERE id = $2',
+        [newStatus, studentId]
+      );
+      updated++;
+    }
+
+    res.json({ 
+      message: `${updated} öğrencinin durumu güncellendi`,
+      updated 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
