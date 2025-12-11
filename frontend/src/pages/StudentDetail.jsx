@@ -33,6 +33,7 @@ export default function StudentDetail() {
     end_time: '',
     room: ''
   });
+  const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
 
   const daysOfWeek = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
@@ -168,6 +169,46 @@ export default function StudentDetail() {
     }
   };
 
+  const toggleScheduleSelection = (scheduleId) => {
+    setSelectedScheduleIds(prev => 
+      prev.includes(scheduleId)
+        ? prev.filter(id => id !== scheduleId)
+        : [...prev, scheduleId]
+    );
+  };
+
+  const toggleAllSchedules = (courseSchedules) => {
+    const courseScheduleIds = courseSchedules.map(s => s.id);
+    const allSelected = courseScheduleIds.every(id => selectedScheduleIds.includes(id));
+    
+    if (allSelected) {
+      setSelectedScheduleIds(prev => prev.filter(id => !courseScheduleIds.includes(id)));
+    } else {
+      setSelectedScheduleIds(prev => [...new Set([...prev, ...courseScheduleIds])]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedScheduleIds.length === 0) {
+      alert('Lütfen iptal edilecek dersleri seçin');
+      return;
+    }
+
+    if (!window.confirm(`${selectedScheduleIds.length} dersi iptal etmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`)) {
+      return;
+    }
+
+    try {
+      await Promise.all(selectedScheduleIds.map(id => schedulesAPI.delete(id)));
+      alert(`${selectedScheduleIds.length} ders başarıyla iptal edildi`);
+      setSelectedScheduleIds([]);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting schedules:', error);
+      alert('Dersler iptal edilirken hata oluştu');
+    }
+  };
+
   // Group schedules by course
   const groupedSchedules = studentSchedules.reduce((acc, schedule) => {
     if (!acc[schedule.course_id]) {
@@ -230,52 +271,114 @@ export default function StudentDetail() {
           </div>
           <div className="detail-row">
             <span className="detail-label">Durum:</span>
-            <span className={`badge badge-${student.status === 'active' ? 'success' : 'warning'}`}>
-              {student.status === 'active' ? 'Aktif' : 'Pasif'}
+            <span className={`badge badge-${
+              student.status === 'active' ? 'success' : 
+              student.status === 'completed' ? 'info' : 
+              'warning'
+            }`}>
+              {student.status === 'active' ? 'Aktif' : 
+               student.status === 'completed' ? 'Tamamladı' : 
+               'Pasif'}
             </span>
           </div>
         </div>
 
         {/* Enrolled Courses with Lesson Dates */}
         <div className="detail-card" style={{ gridColumn: '1 / -1' }}>
-          <h3 className="detail-card-title">Kayıtlı Dersler ve Tarihler</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+            <h3 className="detail-card-title" style={{ margin: 0 }}>Kayıtlı Dersler ve Tarihler</h3>
+            {selectedScheduleIds.length > 0 && (
+              <button 
+                onClick={handleBulkDelete}
+                className="btn btn-error btn-sm"
+              >
+                🗑️ Seçilenleri İptal Et ({selectedScheduleIds.length})
+              </button>
+            )}
+          </div>
           {Object.keys(groupedSchedules).length > 0 ? (
             <div className="courses-list">
-              {Object.entries(groupedSchedules).map(([courseId, courseData]) => (
-                <div key={courseId} className="course-item-with-dates">
-                  <div className="course-header">
-                    <div className="course-name">{courseData.course_name}</div>
-                    <span className="badge badge-info">
-                      {courseData.schedules.length} ders planlandı
-                    </span>
-                  </div>
-                  
-                  {/* Lesson Dates Grid */}
-                  <div className="lesson-dates-grid">
-                    {courseData.schedules.map((schedule) => (
-                      <div
-                        key={schedule.id}
-                        className="lesson-date-card"
-                        onClick={() => openScheduleDetail(schedule)}
-                        title="Detaylar için tıklayın"
-                      >
-                        <div className="lesson-date">
-                          {new Date(schedule.specific_date).toLocaleDateString('tr-TR', {
-                            day: '2-digit',
-                            month: 'short'
-                          }).toUpperCase()}
-                        </div>
-                        <div className="lesson-time">
-                          {schedule.start_time?.slice(0, 5)}
-                        </div>
-                        <div className="lesson-teacher">
-                          {schedule.teacher_first_name?.[0]}.{schedule.teacher_last_name?.[0]}.
-                        </div>
+              {Object.entries(groupedSchedules).map(([courseId, courseData]) => {
+                const courseScheduleIds = courseData.schedules.map(s => s.id);
+                const allSelected = courseScheduleIds.every(id => selectedScheduleIds.includes(id));
+                const someSelected = courseScheduleIds.some(id => selectedScheduleIds.includes(id));
+                
+                return (
+                  <div key={courseId} className="course-item-with-dates">
+                    <div className="course-header">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={input => {
+                            if (input) input.indeterminate = someSelected && !allSelected;
+                          }}
+                          onChange={() => toggleAllSchedules(courseData.schedules)}
+                          style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                          title={allSelected ? 'Tüm dersleri kaldır' : 'Tüm dersleri seç'}
+                        />
+                        <div className="course-name">{courseData.course_name}</div>
                       </div>
-                    ))}
+                      <span className="badge badge-info">
+                        {courseData.schedules.length} ders planlandı
+                      </span>
+                    </div>
+                    
+                    {/* Lesson Dates Grid */}
+                    <div className="lesson-dates-grid">
+                      {courseData.schedules.map((schedule) => (
+                        <div
+                          key={schedule.id}
+                          className="lesson-date-card"
+                          style={{
+                            border: selectedScheduleIds.includes(schedule.id) 
+                              ? '2px solid var(--primary)' 
+                              : '1px solid var(--border)',
+                            backgroundColor: selectedScheduleIds.includes(schedule.id)
+                              ? 'var(--primary-light)'
+                              : 'transparent'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedScheduleIds.includes(schedule.id)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              toggleScheduleSelection(schedule.id);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              left: '4px',
+                              cursor: 'pointer',
+                              width: '16px',
+                              height: '16px'
+                            }}
+                          />
+                          <div 
+                            onClick={() => openScheduleDetail(schedule)}
+                            title="Detaylar için tıklayın"
+                            style={{ cursor: 'pointer', paddingTop: '8px' }}
+                          >
+                            <div className="lesson-date">
+                              {new Date(schedule.specific_date).toLocaleDateString('tr-TR', {
+                                day: '2-digit',
+                                month: 'short'
+                              }).toUpperCase()}
+                            </div>
+                            <div className="lesson-time">
+                              {schedule.start_time?.slice(0, 5)}
+                            </div>
+                            <div className="lesson-teacher">
+                              {schedule.teacher_first_name?.[0]}.{schedule.teacher_last_name?.[0]}.
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <p className="text-secondary">Henüz planlanmış ders yok</p>

@@ -112,8 +112,9 @@
 }
 
 .lesson-date-card {
+  position: relative;
   background: white;
-  border: 2px solid var(--border-light);
+  border: 2px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   text-align: center;
@@ -124,6 +125,7 @@
   gap: var(--space-1);
   min-height: 85px;
   justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .lesson-date-card:hover {

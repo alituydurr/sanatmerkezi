@@ -200,7 +200,7 @@ export const enrollStudent = async (req, res, next) => {
 // Record payment for event enrollment
 export const recordEventPayment = async (req, res, next) => {
   try {
-    const { enrollment_id, amount } = req.body;
+    const { enrollment_id, amount, payment_date } = req.body;
 
     if (!enrollment_id || !amount) {
       return res.status(400).json({ error: 'Enrollment ID and amount are required' });
@@ -209,6 +209,7 @@ export const recordEventPayment = async (req, res, next) => {
     const result = await pool.query(
       `UPDATE event_enrollments
       SET paid_amount = paid_amount + $1,
+          payment_date = COALESCE($3, CURRENT_TIMESTAMP),
           payment_status = CASE
             WHEN paid_amount + $1 >= (SELECT price FROM events WHERE id = event_id) THEN 'paid'
             WHEN paid_amount + $1 > 0 THEN 'partial'
@@ -216,7 +217,7 @@ export const recordEventPayment = async (req, res, next) => {
           END
       WHERE id = $2
       RETURNING *`,
-      [amount, enrollment_id]
+      [amount, enrollment_id, payment_date]
     );
 
     if (result.rows.length === 0) {
@@ -241,8 +242,8 @@ export const recordDirectEventPayment = async (req, res, next) => {
     // Update event's paid amount by creating a virtual enrollment or tracking separately
     // For simplicity, we'll create a generic enrollment with student_id = NULL
     const result = await pool.query(
-      `INSERT INTO event_enrollments (event_id, student_id, paid_amount, payment_status, enrollment_date)
-      VALUES ($1, NULL, $2, 
+      `INSERT INTO event_enrollments (event_id, student_id, paid_amount, payment_date, payment_status, enrollment_date)
+      VALUES ($1, NULL, $2, $3,
         CASE 
           WHEN $2 >= (SELECT price FROM events WHERE id = $1) THEN 'paid'
           WHEN $2 > 0 THEN 'partial'
@@ -252,6 +253,7 @@ export const recordDirectEventPayment = async (req, res, next) => {
       ON CONFLICT (event_id, student_id) 
       DO UPDATE SET 
         paid_amount = event_enrollments.paid_amount + $2,
+        payment_date = COALESCE($3, event_enrollments.payment_date),
         payment_status = CASE
           WHEN event_enrollments.paid_amount + $2 >= (SELECT price FROM events WHERE id = $1) THEN 'paid'
           WHEN event_enrollments.paid_amount + $2 > 0 THEN 'partial'
@@ -267,7 +269,7 @@ export const recordDirectEventPayment = async (req, res, next) => {
   }
 };
 
-// Cancel event
+// Cancel event (or remaining unpaid portion)
 export const cancelEvent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -277,6 +279,24 @@ export const cancelEvent = async (req, res, next) => {
       return res.status(400).json({ error: 'Cancellation reason is required' });
     }
 
+    // Get event details and paid amount
+    const eventData = await pool.query(
+      `SELECT e.price, COALESCE(SUM(ee.paid_amount), 0) as total_paid
+      FROM events e
+      LEFT JOIN event_enrollments ee ON e.id = ee.event_id
+      WHERE e.id = $1
+      GROUP BY e.id`,
+      [id]
+    );
+
+    if (eventData.rows.length === 0) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const { price, total_paid } = eventData.rows[0];
+    const cancelledAmount = parseFloat(price) - parseFloat(total_paid);
+
+    // Update event status
     const result = await pool.query(
       `UPDATE events
       SET status = 'cancelled',
@@ -289,9 +309,16 @@ export const cancelEvent = async (req, res, next) => {
       [cancellation_reason, req.user.id, id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Event not found' });
-    }
+    // Update enrollments to track cancelled amount
+    await pool.query(
+      `UPDATE event_enrollments
+      SET cancelled_amount = $1,
+          cancellation_reason = $2,
+          cancelled_at = CURRENT_TIMESTAMP,
+          cancelled_by = $3
+      WHERE event_id = $4`,
+      [cancelledAmount, cancellation_reason, req.user.id, id]
+    );
 
     res.json(result.rows[0]);
   } catch (error) {
@@ -308,11 +335,12 @@ export const getCancelledEvents = async (req, res, next) => {
         e.name as item_name,
         e.event_type,
         e.price as total_amount,
+        COALESCE(SUM(ee.paid_amount), 0) as paid_amount,
+        COALESCE(MAX(ee.cancelled_amount), e.price - COALESCE(SUM(ee.paid_amount), 0)) as cancelled_amount,
         e.start_date,
         e.end_date,
         e.cancellation_reason,
         e.cancelled_at,
-        COALESCE(SUM(ee.paid_amount), 0) as paid_amount,
         t.first_name,
         t.last_name
       FROM events e

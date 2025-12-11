@@ -11,11 +11,11 @@ export const generateToken = (user) => {
     {
       id: user.id,
       email: user.email,
-      role: user.role,
-      full_name: user.full_name
+      role: user.role
+      // full_name removed - fetch user details via /auth/me endpoint
     },
     JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '12h' }
   );
 };
 

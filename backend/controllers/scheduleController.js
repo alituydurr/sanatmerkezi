@@ -181,13 +181,27 @@ export const deleteSchedule = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM course_schedules WHERE id = $1 RETURNING id',
+    // Get student_id before deleting
+    const scheduleInfo = await pool.query(
+      'SELECT student_id FROM course_schedules WHERE id = $1',
       [id]
     );
 
-    if (result.rows.length === 0) {
+    if (scheduleInfo.rows.length === 0) {
       return res.status(404).json({ error: 'Schedule not found' });
+    }
+
+    const studentId = scheduleInfo.rows[0].student_id;
+
+    // Delete the schedule
+    await pool.query(
+      'DELETE FROM course_schedules WHERE id = $1',
+      [id]
+    );
+
+    // Update student status if student_id exists
+    if (studentId) {
+      await updateStudentStatus(studentId);
     }
 
     res.json({ message: 'Schedule deleted successfully' });
@@ -195,3 +209,44 @@ export const deleteSchedule = async (req, res, next) => {
     next(error);
   }
 };
+
+// Helper function to update student status based on schedules
+async function updateStudentStatus(studentId) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Check if student has any schedules
+    const allSchedules = await pool.query(
+      'SELECT COUNT(*) as total FROM course_schedules WHERE student_id = $1',
+      [studentId]
+    );
+
+    const totalSchedules = parseInt(allSchedules.rows[0].total);
+
+    // Check if student has future schedules
+    const futureSchedules = await pool.query(
+      'SELECT COUNT(*) as total FROM course_schedules WHERE student_id = $1 AND specific_date >= $2',
+      [studentId, today]
+    );
+
+    const futureLessons = parseInt(futureSchedules.rows[0].total);
+
+    let newStatus;
+    if (totalSchedules === 0) {
+      newStatus = 'inactive'; // No lessons at all
+    } else if (futureLessons === 0) {
+      newStatus = 'completed'; // All lessons are in the past
+    } else {
+      newStatus = 'active'; // Has future lessons
+    }
+
+    // Update student status
+    await pool.query(
+      'UPDATE students SET status = $1 WHERE id = $2',
+      [newStatus, studentId]
+    );
+  } catch (error) {
+    console.error('Error updating student status:', error);
+    // Don't throw error, just log it
+  }
+}

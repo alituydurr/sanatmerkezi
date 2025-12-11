@@ -389,22 +389,25 @@ export default function FinancialReports() {
                           <th>Öğrenci</th>
                           <th>Ders</th>
                           <th>Toplam Tutar</th>
-                          <th>Ödenen</th>
+                          <th>İptal Edilen Tutar</th>
                           <th>İptal Tarihi</th>
                           <th>İptal Nedeni</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {cancelledPayments.map((payment, idx) => (
-                          <tr key={idx}>
-                            <td>{payment.student_first_name} {payment.student_last_name}</td>
-                            <td>{payment.course_name || '-'}</td>
-                            <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
-                            <td>{formatCurrencyWithSymbol(payment.paid_amount || 0)}</td>
-                            <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
-                            <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
-                          </tr>
-                        ))}
+                        {cancelledPayments.map((payment, idx) => {
+                          const cancelledAmount = parseFloat(payment.total_amount) - parseFloat(payment.paid_amount || 0);
+                          return (
+                            <tr key={idx}>
+                              <td>{payment.student_first_name} {payment.student_last_name}</td>
+                              <td>{payment.course_name || '-'}</td>
+                              <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
+                              <td className="text-error">{formatCurrencyWithSymbol(cancelledAmount)}</td>
+                              <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                              <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -422,22 +425,25 @@ export default function FinancialReports() {
                           <th>Öğretmen</th>
                           <th>Ay</th>
                           <th>Toplam Tutar</th>
-                          <th>Ödenen</th>
+                          <th>İptal Edilen Tutar</th>
                           <th>İptal Tarihi</th>
                           <th>İptal Nedeni</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {cancelledTeacherPayments.map((payment, idx) => (
-                          <tr key={idx}>
-                            <td>{payment.first_name} {payment.last_name}</td>
-                            <td>{payment.month_year}</td>
-                            <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
-                            <td>{formatCurrencyWithSymbol(payment.paid_amount || 0)}</td>
-                            <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
-                            <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
-                          </tr>
-                        ))}
+                        {cancelledTeacherPayments.map((payment, idx) => {
+                          const cancelledAmount = parseFloat(payment.total_amount) - parseFloat(payment.paid_amount || 0);
+                          return (
+                            <tr key={idx}>
+                              <td>{payment.first_name} {payment.last_name}</td>
+                              <td>{payment.month_year}</td>
+                              <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
+                              <td className="text-error">{formatCurrencyWithSymbol(cancelledAmount)}</td>
+                              <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                              <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -455,22 +461,25 @@ export default function FinancialReports() {
                           <th>Etkinlik</th>
                           <th>Tür</th>
                           <th>Toplam Tutar</th>
-                          <th>Ödenen</th>
+                          <th>İptal Edilen Tutar</th>
                           <th>İptal Tarihi</th>
                           <th>İptal Nedeni</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {cancelledEvents.map((event, idx) => (
-                          <tr key={idx}>
-                            <td>{event.item_name}</td>
-                            <td>{event.event_type}</td>
-                            <td>{formatCurrencyWithSymbol(event.total_amount)}</td>
-                            <td>{formatCurrencyWithSymbol(event.paid_amount || 0)}</td>
-                            <td>{new Date(event.cancelled_at).toLocaleDateString('tr-TR')}</td>
-                            <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{event.cancellation_reason}</td>
-                          </tr>
-                        ))}
+                        {cancelledEvents.map((event, idx) => {
+                          const cancelledAmount = parseFloat(event.total_amount) - parseFloat(event.paid_amount || 0);
+                          return (
+                            <tr key={idx}>
+                              <td>{event.item_name}</td>
+                              <td>{event.event_type}</td>
+                              <td>{formatCurrencyWithSymbol(event.total_amount)}</td>
+                              <td className="text-error">{formatCurrencyWithSymbol(cancelledAmount)}</td>
+                              <td>{new Date(event.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                              <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{event.cancellation_reason}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

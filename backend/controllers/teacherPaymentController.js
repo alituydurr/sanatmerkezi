@@ -7,7 +7,13 @@ export const calculateTeacherHours = async (req, res, next) => {
 
     const [year, month] = monthYear.split('-');
     const startDate = `${year}-${month.padStart(2, '0')}-01`;
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+    
+    // Get last day of month: Create date for 1st day of NEXT month, then subtract 1 day
+    // For January (month=01), we want the last day of January
+    // new Date(2026, 1, 0) gives us Dec 31, 2025 (wrong!)
+    // We need: new Date(2026, 2, 0) which gives us Jan 31, 2026 (correct!)
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const endDate = `${year}-${month.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     // Calculate total hours from schedules with specific_date in this month
     const result = await pool.query(`
@@ -22,8 +28,8 @@ export const calculateTeacherHours = async (req, res, next) => {
       FROM course_schedules cs
       INNER JOIN teachers t ON cs.teacher_id = t.id
       WHERE cs.teacher_id = $1
-        AND cs.specific_date >= $2
-        AND cs.specific_date <= $3
+        AND cs.specific_date::date >= $2::date
+        AND cs.specific_date::date <= $3::date
       GROUP BY cs.teacher_id, t.first_name, t.last_name
     `, [teacherId, startDate, endDate]);
 
@@ -95,26 +101,47 @@ export const createTeacherPayment = async (req, res, next) => {
 
     const totalAmount = parseFloat(total_hours) * parseFloat(hourly_rate);
 
-    // Check if already exists
+    // Check if already exists (including cancelled)
     const existing = await pool.query(
-      'SELECT * FROM teacher_payments WHERE teacher_id = $1 AND month_year = $2',
+      `SELECT * FROM teacher_payments 
+       WHERE teacher_id = $1 
+         AND month_year = $2`,
       [teacher_id, month_year]
     );
 
     let result;
     if (existing.rows.length > 0) {
-      // Update existing
-      result = await pool.query(`
-        UPDATE teacher_payments
-        SET total_hours = $1,
-            hourly_rate = $2,
-            total_amount = $3,
-            remaining_amount = $3 - paid_amount,
-            notes = $4,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE teacher_id = $5 AND month_year = $6
-        RETURNING *
-      `, [total_hours, hourly_rate, totalAmount, notes, teacher_id, month_year]);
+      const existingPayment = existing.rows[0];
+      
+      // If cancelled, reactivate it with new values
+      if (existingPayment.status === 'cancelled') {
+        result = await pool.query(`
+          UPDATE teacher_payments
+          SET total_hours = $1,
+              hourly_rate = $2,
+              total_amount = $3,
+              remaining_amount = $3,
+              paid_amount = 0,
+              status = 'pending',
+              notes = $4,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE teacher_id = $5 AND month_year = $6
+          RETURNING *
+        `, [total_hours, hourly_rate, totalAmount, notes, teacher_id, month_year]);
+      } else {
+        // Update existing active payment
+        result = await pool.query(`
+          UPDATE teacher_payments
+          SET total_hours = $1,
+              hourly_rate = $2,
+              total_amount = $3,
+              remaining_amount = $3 - paid_amount,
+              notes = $4,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE teacher_id = $5 AND month_year = $6
+          RETURNING *
+        `, [total_hours, hourly_rate, totalAmount, notes, teacher_id, month_year]);
+      }
     } else {
       // Create new
       result = await pool.query(`

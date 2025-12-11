@@ -21,13 +21,13 @@ export const getFinancialSummary = async (req, res, next) => {
       WHERE DATE(p.payment_date) BETWEEN $1 AND $2
     `, [startDate, endDate]);
 
-    // Get event payments (income) for the month - exclude cancelled events
+    // Get event payments (income) for the month
+    // Include paid amounts from ALL events, even cancelled ones (paid money is real income)
     const eventPayments = await pool.query(`
       SELECT COALESCE(SUM(ee.paid_amount), 0) as total
       FROM event_enrollments ee
-      INNER JOIN events e ON ee.event_id = e.id
-      WHERE DATE(ee.enrollment_date) BETWEEN $1 AND $2
-        AND e.status != 'cancelled'
+      WHERE ee.payment_date IS NOT NULL
+        AND DATE(ee.payment_date) BETWEEN $1 AND $2
     `, [startDate, endDate]);
 
     // Get teacher payments (expense) for the month - exclude cancelled
@@ -50,7 +50,7 @@ export const getFinancialSummary = async (req, res, next) => {
         )
     `, [startDate, endDate]);
 
-    // Get planned income (events in this month)
+    // Get planned income (events in this month) - only unpaid, uncancelled portions
     const plannedEventIncome = await pool.query(`
       SELECT COALESCE(SUM(e.price - COALESCE(ee_sum.paid, 0)), 0) as total
       FROM events e
@@ -60,7 +60,7 @@ export const getFinancialSummary = async (req, res, next) => {
         GROUP BY event_id
       ) ee_sum ON e.id = ee_sum.event_id
       WHERE DATE(e.start_date) BETWEEN $1 AND $2
-        AND e.status != 'cancelled'
+        AND e.status NOT IN ('cancelled', 'completed')
     `, [startDate, endDate]);
 
     // Get planned expenses (teacher payments for the month)
@@ -121,17 +121,18 @@ export const getFinancialReport = async (req, res, next) => {
       ORDER BY p.payment_date DESC
     `, [startDate, endDate]);
 
-    // Event payments breakdown - exclude cancelled events
+    // Event payments breakdown - include paid amounts from all events
     const eventPaymentsDetail = await pool.query(`
       SELECT 
         e.name as event_name,
         e.event_type,
         COALESCE(SUM(ee.paid_amount), 0) as total_paid,
-        e.price as event_price
+        e.price as event_price,
+        e.status
       FROM events e
       LEFT JOIN event_enrollments ee ON e.id = ee.event_id
-      WHERE DATE(e.start_date) BETWEEN $1 AND $2
-        AND e.status != 'cancelled'
+      WHERE ee.payment_date IS NOT NULL
+        AND DATE(ee.payment_date) BETWEEN $1 AND $2
       GROUP BY e.id
       ORDER BY e.start_date DESC
     `, [startDate, endDate]);
