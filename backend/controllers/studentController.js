@@ -38,6 +38,25 @@ export const getAllStudents = async (req, res, next) => {
   }
 };
 
+// Get student statistics
+export const getStudentStats = async (req, res, next) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status = 'active') as active,
+        COUNT(*) FILTER (WHERE status = 'inactive') as inactive,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed
+      FROM students
+    `);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 // Get student by ID
 export const getStudentById = async (req, res, next) => {
   try {
@@ -284,7 +303,7 @@ export const getStudentSchedules = async (req, res, next) => {
       LEFT JOIN teachers t ON cs.teacher_id = t.id
       WHERE cs.student_id = $1
         AND cs.specific_date IS NOT NULL
-        AND cs.specific_date >= CURRENT_DATE
+        AND cs.specific_date >= CURRENT_DATE - INTERVAL '30 days'
       ORDER BY cs.specific_date ASC, cs.start_time ASC
     `, [id]);
     

@@ -173,6 +173,79 @@
   letter-spacing: 0.05em;
 }
 
+/* Student Stats Grid */
+.student-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.stat-box {
+  background: var(--background);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  text-align: center;
+  border: 2px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.stat-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-box .stat-number {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: var(--space-1);
+}
+
+.stat-box .stat-label {
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.stat-box.stat-total {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+}
+
+.stat-box.stat-total .stat-number {
+  color: #1e40af;
+}
+
+.stat-box.stat-active {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+}
+
+.stat-box.stat-active .stat-number {
+  color: #065f46;
+}
+
+.stat-box.stat-inactive {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.stat-box.stat-inactive .stat-number {
+  color: #92400e;
+}
+
+.stat-box.stat-completed {
+  border-color: #6b7280;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.stat-box.stat-completed .stat-number {
+  color: #1f2937;
+}
+
+.clickable-card {
+  cursor: pointer !important;
+}
+
 .quick-actions {
   margin-top: var(--space-10);
 }

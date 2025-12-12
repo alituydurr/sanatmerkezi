@@ -46,6 +46,7 @@ export const authAPI = {
 // Students API
 export const studentsAPI = {
   getAll: () => api.get('/students'),
+  getStats: () => api.get('/students/stats/summary'),
   getById: (id) => api.get(`/students/${id}`),
   getSchedules: (id) => api.get(`/students/${id}/schedules`),
   create: (data) => api.post('/students', data),
@@ -55,10 +56,13 @@ export const studentsAPI = {
   removeFromCourse: (studentId, courseId) => api.delete(`/students/${studentId}/courses/${courseId}`)
 };
 
+
 // Teachers API
 export const teachersAPI = {
   getAll: () => api.get('/teachers'),
   getById: (id) => api.get(`/teachers/${id}`),
+  getSchedules: (id) => api.get(`/teachers/${id}/schedules`),
+  getAttendance: (id) => api.get(`/teachers/${id}/attendance`),
   create: (data) => api.post('/teachers', data),
   update: (id, data) => api.put(`/teachers/${id}`, data),
   delete: (id) => api.delete(`/teachers/${id}`),
@@ -111,6 +115,19 @@ export const teacherPaymentsAPI = {
 
 // Attendance API
 export const attendanceAPI = {
+  mark: (data) => api.post('/attendance/mark', data),
+  cancelLesson: (data) => api.post('/attendance/cancel-lesson', data),
+  getBySchedule: (scheduleId, date) => api.get(`/attendance/schedule/${scheduleId}/${date}`),
+  getByStudent: (studentId, startDate, endDate) => 
+    api.get(`/attendance/student/${studentId}`, { 
+      params: { startDate, endDate } 
+    }),
+  getStudentStats: (studentId, startDate, endDate) =>
+    api.get(`/attendance/student/${studentId}/stats`, {
+      params: { startDate, endDate }
+    }),
+  getTodayLessons: () => api.get('/attendance/today'),
+  // Legacy endpoints (keep for compatibility)
   confirm: (data) => api.post('/attendance/confirm', data),
   getTeacherAttendance: (startDate, endDate) =>
     api.get('/attendance/teacher', {
@@ -121,6 +138,7 @@ export const attendanceAPI = {
       params: { start_date: startDate, end_date: endDate }
     })
 };
+
 
 // Events API
 export const eventsAPI = {

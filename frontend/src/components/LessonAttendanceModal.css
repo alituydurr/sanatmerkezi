@@ -1,0 +1,144 @@
+.lesson-attendance-modal {
+  max-width: 600px;
+  max-height: 80vh;
+}
+
+.lesson-modal-time,
+.lesson-modal-teacher {
+  margin: var(--space-1) 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.students-attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2);
+}
+
+.student-attendance-item {
+  background: var(--background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.student-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.student-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.status-indicator {
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-indicator.status-present {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-indicator.status-absent {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-indicator.status-cancelled {
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.attendance-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.btn-attendance {
+  padding: var(--space-2) var(--space-3);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--background);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.btn-attendance:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-attendance:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-present {
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.btn-present:hover:not(:disabled) {
+  background-color: #d1fae5;
+}
+
+.btn-present.active {
+  background-color: #10b981;
+  color: white;
+}
+
+.btn-absent {
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.btn-absent:hover:not(:disabled) {
+  background-color: #fee2e2;
+}
+
+.btn-absent.active {
+  background-color: #ef4444;
+  color: white;
+}
+
+.btn-cancelled {
+  border-color: #6b7280;
+  color: #374151;
+}
+
+.btn-cancelled:hover:not(:disabled) {
+  background-color: #f3f4f6;
+}
+
+.btn-cancelled.active {
+  background-color: #6b7280;
+  color: white;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+  margin-top: var(--space-3);
+}

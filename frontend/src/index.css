@@ -210,6 +210,30 @@ p {
   color: var(--primary-600);
 }
 
+.btn-success {
+  background: var(--success);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-success:hover {
+  background: hsl(142, 71%, 40%);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.btn-error {
+  background: var(--error);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-error:hover {
+  background: hsl(0, 84%, 55%);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
 .btn-sm {
   padding: var(--space-2) var(--space-4);
   font-size: 0.8125rem;
@@ -489,6 +513,39 @@ tr:hover {
 
 .text-success {
   color: var(--success);
+}
+
+/* ==================== Modal Close Button ==================== */
+.modal-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-full);
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  z-index: 10;
+}
+
+.modal-close:hover {
+  background: var(--error);
+  border-color: var(--error);
+  color: white;
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-close:active {
+  transform: rotate(90deg) scale(0.95);
 }
 
 /* ==================== Scrollbar ==================== */

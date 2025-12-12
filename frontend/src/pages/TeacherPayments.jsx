@@ -56,12 +56,22 @@ export default function TeacherPayments() {
         calculateForm.month_year
       );
       
-      // Create teacher payment
+      const normalHours = parseFloat(hoursRes.data.total_hours || 0);
+      const trialFee = parseFloat(hoursRes.data.trial_lessons_fee || 0);
+      
+      // Check if teacher has any completed classes or trial lessons
+      if (normalHours === 0 && trialFee === 0) {
+        alert('Bu öğretmenin seçilen ay içerisinde tamamlanmış dersi bulunmamaktadır. Lütfen önce dersleri "Geldi" olarak işaretleyin.');
+        return;
+      }
+      
+      // Create teacher payment (backend will calculate the total including trial lessons)
       await teacherPaymentsAPI.create({
         teacher_id: calculateForm.teacher_id,
         month_year: calculateForm.month_year,
         total_hours: hoursRes.data.total_hours,
-        hourly_rate: calculateForm.hourly_rate
+        hourly_rate: calculateForm.hourly_rate,
+        trial_lessons_fee: trialFee
       });
 
       setShowCalculateModal(false);
@@ -71,6 +81,8 @@ export default function TeacherPayments() {
         hourly_rate: ''
       });
       loadData();
+      
+      alert('Öğretmen ödemesi başarıyla oluşturuldu!');
     } catch (error) {
       console.error('Error calculating payment:', error);
       alert('Ödeme hesaplanırken hata oluştu');
@@ -175,6 +187,7 @@ export default function TeacherPayments() {
               <th>Ay</th>
               <th>Toplam Saat</th>
               <th>Saat Ücreti</th>
+              <th>Deneme Dersi</th>
               <th>Toplam Tutar</th>
               <th>Ödenen</th>
               <th>Kalan</th>
@@ -183,12 +196,18 @@ export default function TeacherPayments() {
             </tr>
           </thead>
           <tbody>
-            {teacherPayments.map((tp) => (
+            {teacherPayments.map((tp) => {
+              // Calculate trial lessons fee from total_amount - (total_hours × hourly_rate)
+              const normalLessonsFee = parseFloat(tp.total_hours || 0) * parseFloat(tp.hourly_rate || 0);
+              const trialLessonsFee = parseFloat(tp.total_amount || 0) - normalLessonsFee;
+              
+              return (
               <tr key={tp.id}>
                 <td className="font-bold">{tp.first_name} {tp.last_name}</td>
                 <td>{tp.month_year}</td>
                 <td>{parseFloat(tp.total_hours).toFixed(2)} saat</td>
                 <td>{formatCurrencyWithSymbol(tp.hourly_rate || 0)}</td>
+                <td>{formatCurrencyWithSymbol(trialLessonsFee)}</td>
                 <td>{formatCurrencyWithSymbol(tp.total_amount)}</td>
                 <td className="text-success">{formatCurrencyWithSymbol(tp.paid_amount || 0)}</td>
                 <td className={parseFloat(tp.remaining_amount) > 0 ? 'text-error' : 'text-success'}>
@@ -223,7 +242,8 @@ export default function TeacherPayments() {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

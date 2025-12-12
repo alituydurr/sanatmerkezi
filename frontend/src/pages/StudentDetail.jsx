@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { studentsAPI, coursesAPI, teachersAPI, schedulesAPI } from '../services/api';
+import { studentsAPI, coursesAPI, teachersAPI, schedulesAPI, attendanceAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
 import './StudentDetail.css';
@@ -24,16 +24,23 @@ export default function StudentDetail() {
     end_date: '',
     selected_days: [], // [0, 1, 2, 3, 4, 5, 6] for selected days
     start_time: '',
-    end_time: '',
-    room: ''
+    end_time: ''
   });
   const [scheduleEditForm, setScheduleEditForm] = useState({
     specific_date: '',
     start_time: '',
-    end_time: '',
-    room: ''
+    end_time: ''
   });
   const [selectedScheduleIds, setSelectedScheduleIds] = useState([]);
+  const [attendanceData, setAttendanceData] = useState({});
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    address: ''
+  });
 
   const daysOfWeek = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
@@ -43,16 +50,27 @@ export default function StudentDetail() {
 
   const loadData = async () => {
     try {
-      const [studentRes, coursesRes, teachersRes, schedulesRes] = await Promise.all([
+      const [studentRes, coursesRes, teachersRes, schedulesRes, attendanceRes] = await Promise.all([
         studentsAPI.getById(id),
         coursesAPI.getAll(),
         teachersAPI.getAll(),
-        studentsAPI.getSchedules(id)
+        studentsAPI.getSchedules(id),
+        attendanceAPI.getByStudent(id)
       ]);
       setStudent(studentRes.data);
       setCourses(coursesRes.data);
       setTeachers(teachersRes.data);
       setStudentSchedules(schedulesRes.data);
+      
+      // Map attendance data by schedule_id and date for easy lookup
+      const attendanceMap = {};
+      attendanceRes.data.forEach(att => {
+        // Normalize date format
+        const normalizedDate = att.attendance_date.split('T')[0];
+        const key = `${att.schedule_id}_${normalizedDate}`;
+        attendanceMap[key] = att.status;
+      });
+      setAttendanceData(attendanceMap);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -88,7 +106,6 @@ export default function StudentDetail() {
             day_of_week: dayOfWeek,
             start_time: scheduleForm.start_time,
             end_time: scheduleForm.end_time,
-            room: scheduleForm.room,
             is_recurring: false
           });
         }
@@ -112,8 +129,7 @@ export default function StudentDetail() {
         end_date: '',
         selected_days: [],
         start_time: '',
-        end_time: '',
-        room: ''
+        end_time: ''
       });
       loadData();
     } catch (error) {
@@ -136,8 +152,7 @@ export default function StudentDetail() {
     setScheduleEditForm({
       specific_date: schedule.specific_date,
       start_time: schedule.start_time,
-      end_time: schedule.end_time,
-      room: schedule.room || ''
+      end_time: schedule.end_time
     });
     setShowScheduleDetailModal(true);
   };
@@ -155,17 +170,32 @@ export default function StudentDetail() {
     }
   };
 
-  const handleScheduleCancel = async () => {
-    if (!window.confirm('Bu dersi iptal etmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
-    
+  const handleMarkScheduleAttendance = async (status) => {
     try {
-      await schedulesAPI.delete(selectedSchedule.id);
-      alert('Ders iptal edildi');
+      const normalizedDate = selectedSchedule.specific_date.split('T')[0];
+      
+      await attendanceAPI.mark({
+        schedule_id: selectedSchedule.id,
+        student_id: student.id,
+        attendance_date: normalizedDate,
+        status: status
+      });
+
+      // Update local state immediately for instant feedback
+      const key = `${selectedSchedule.id}_${normalizedDate}`;
+      setAttendanceData(prev => ({
+        ...prev,
+        [key]: status
+      }));
+      
+      // Close modal immediately
       setShowScheduleDetailModal(false);
-      loadData();
+      
+      // ✅ FIXED: Removed loadData() call to prevent state override
+      // Local state update is sufficient for instant UI feedback
     } catch (error) {
-      console.error('Error canceling schedule:', error);
-      alert('Ders iptal edilirken hata oluştu');
+      console.error('Error marking attendance:', error);
+      alert('Yoklama işaretlenirken hata oluştu');
     }
   };
 
@@ -209,6 +239,79 @@ export default function StudentDetail() {
     }
   };
 
+  const handleBulkAttendance = async (status) => {
+    if (selectedScheduleIds.length === 0) {
+      alert('Lütfen işaretlenecek dersleri seçin');
+      return;
+    }
+
+    const statusText = status === 'present' ? 'Geldi' : status === 'absent' ? 'Gelmedi' : 'İptal';
+    if (!window.confirm(`${selectedScheduleIds.length} dersi "${statusText}" olarak işaretlemek istediğinizden emin misiniz?`)) {
+      return;
+    }
+
+    try {
+      await Promise.all(selectedScheduleIds.map(scheduleId => {
+        const schedule = studentSchedules.find(s => s.id === scheduleId);
+        const normalizedDate = schedule.specific_date.split('T')[0];
+        
+        return attendanceAPI.mark({
+          schedule_id: scheduleId,
+          student_id: student.id,
+          attendance_date: normalizedDate,
+          status: status
+        });
+      }));
+      
+      // Reload data to get fresh attendance info
+      await loadData();
+      
+      alert(`${selectedScheduleIds.length} ders başarıyla "${statusText}" olarak işaretlendi`);
+      setSelectedScheduleIds([]);
+    } catch (error) {
+      console.error('Error marking bulk attendance:', error);
+      alert('Dersler işaretlenirken hata oluştu');
+    }
+  };
+
+  const openEditModal = () => {
+    setEditForm({
+      first_name: student.first_name || '',
+      last_name: student.last_name || '',
+      email: student.email || '',
+      phone: student.phone || '',
+      address: student.address || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await studentsAPI.update(id, editForm);
+      setShowEditModal(false);
+      loadData();
+      alert('Öğrenci bilgileri başarıyla güncellendi!');
+    } catch (error) {
+      console.error('Error updating student:', error);
+      alert('Bilgiler güncellenirken hata oluştu');
+    }
+  };
+
+  // Helper function to get attendance color
+  const getAttendanceColor = (scheduleId, date) => {
+    // Normalize date format (remove time part if exists)
+    const normalizedDate = date.split('T')[0];
+    const key = `${scheduleId}_${normalizedDate}`;
+    const status = attendanceData[key];
+    
+    if (!status) return 'transparent'; // Not marked yet
+    if (status === 'present') return '#d1fae5'; // Green
+    if (status === 'absent') return '#fee2e2'; // Red
+    if (status === 'cancelled') return '#e5e7eb'; // Gray
+    return 'transparent';
+  };
+
   // Group schedules by course
   const groupedSchedules = studentSchedules.reduce((acc, schedule) => {
     if (!acc[schedule.course_id]) {
@@ -243,9 +346,14 @@ export default function StudentDetail() {
           <p className="page-subtitle">Öğrenci Detayları</p>
         </div>
         {isAdmin() && (
-          <button onClick={() => setShowScheduleModal(true)} className="btn btn-primary">
-            ➕ Ders Ekle
-          </button>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <button onClick={openEditModal} className="btn btn-secondary">
+              ✏️ Bilgileri Düzenle
+            </button>
+            <button onClick={() => setShowScheduleModal(true)} className="btn btn-primary">
+              ➕ Ders Ekle
+            </button>
+          </div>
         )}
       </div>
 
@@ -288,12 +396,34 @@ export default function StudentDetail() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
             <h3 className="detail-card-title" style={{ margin: 0 }}>Kayıtlı Dersler ve Tarihler</h3>
             {selectedScheduleIds.length > 0 && (
-              <button 
-                onClick={handleBulkDelete}
-                className="btn btn-error btn-sm"
-              >
-                🗑️ Seçilenleri İptal Et ({selectedScheduleIds.length})
-              </button>
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <button 
+                  onClick={() => handleBulkAttendance('present')}
+                  className="btn btn-success btn-sm"
+                >
+                  ✓ Geldi ({selectedScheduleIds.length})
+                </button>
+                <button 
+                  onClick={() => handleBulkAttendance('absent')}
+                  className="btn btn-error btn-sm"
+                >
+                  ✗ Gelmedi ({selectedScheduleIds.length})
+                </button>
+                <button 
+                  onClick={() => handleBulkAttendance('cancelled')}
+                  className="btn btn-secondary btn-sm"
+                  style={{ backgroundColor: '#6b7280', color: 'white' }}
+                >
+                  🚫 İptal ({selectedScheduleIds.length})
+                </button>
+                <button 
+                  onClick={handleBulkDelete}
+                  className="btn btn-error btn-sm"
+                  style={{ marginLeft: 'var(--space-2)' }}
+                >
+                  🗑️ Sil ({selectedScheduleIds.length})
+                </button>
+              </div>
             )}
           </div>
           {Object.keys(groupedSchedules).length > 0 ? (
@@ -326,17 +456,21 @@ export default function StudentDetail() {
                     
                     {/* Lesson Dates Grid */}
                     <div className="lesson-dates-grid">
-                      {courseData.schedules.map((schedule) => (
+                      {courseData.schedules.map((schedule) => {
+                        const attendanceColor = getAttendanceColor(schedule.id, schedule.specific_date);
+                        
+                        return (
                         <div
                           key={schedule.id}
                           className="lesson-date-card"
                           style={{
                             border: selectedScheduleIds.includes(schedule.id) 
-                              ? '2px solid var(--primary)' 
+                              ? '3px solid var(--primary)' 
                               : '1px solid var(--border)',
-                            backgroundColor: selectedScheduleIds.includes(schedule.id)
-                              ? 'var(--primary-light)'
-                              : 'transparent'
+                            backgroundColor: attendanceColor,
+                            boxShadow: selectedScheduleIds.includes(schedule.id)
+                              ? '0 0 0 2px var(--primary-light)'
+                              : 'none'
                           }}
                         >
                           <input
@@ -361,10 +495,14 @@ export default function StudentDetail() {
                             style={{ cursor: 'pointer', paddingTop: '8px' }}
                           >
                             <div className="lesson-date">
-                              {new Date(schedule.specific_date).toLocaleDateString('tr-TR', {
-                                day: '2-digit',
-                                month: 'short'
-                              }).toUpperCase()}
+                              {schedule.specific_date ? (() => {
+                                const [year, month, day] = schedule.specific_date.split('T')[0].split('-');
+                                const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+                                return date.toLocaleDateString('tr-TR', {
+                                  day: '2-digit',
+                                  month: 'short'
+                                }).toUpperCase();
+                              })() : '-'}
                             </div>
                             <div className="lesson-time">
                               {schedule.start_time?.slice(0, 5)}
@@ -374,7 +512,8 @@ export default function StudentDetail() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -522,18 +661,6 @@ export default function StudentDetail() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Oda</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={scheduleForm.room}
-                    onChange={(e) => setScheduleForm({...scheduleForm, room: e.target.value})}
-                    placeholder="Örn: Salon 1"
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
                   <label className="form-label">Başlangıç Saati *</label>
                   <input
                     type="time"
@@ -632,31 +759,116 @@ export default function StudentDetail() {
                 </div>
               </div>
               
-              <div className="form-group">
-                <label className="form-label">Oda</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={scheduleEditForm.room}
-                  onChange={(e) => setScheduleEditForm({...scheduleEditForm, room: e.target.value})}
-                  placeholder="Örn: Salon 1"
-                />
-              </div>
-              
               <div className="modal-actions">
-                <button
-                  type="button"
-                  onClick={handleScheduleCancel}
-                  className="btn btn-error"
-                  style={{ marginRight: 'auto' }}
-                >
-                  🗑️ Dersi İptal Et
-                </button>
                 <button type="button" onClick={() => setShowScheduleDetailModal(false)} className="btn btn-secondary">
                   Kapat
                 </button>
                 <button type="submit" className="btn btn-primary">
                   💾 Güncelle
+                </button>
+              </div>
+            </form>
+
+            {/* Attendance Marking Section - Outside Form */}
+            <div className="form-group" style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border-light)' }}>
+              <label className="form-label">Yoklama Durumu</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)' }}>
+                <button
+                  type="button"
+                  className={`btn ${attendanceData[`${selectedSchedule.id}_${selectedSchedule.specific_date.split('T')[0]}`] === 'present' ? 'btn-success' : 'btn-secondary'}`}
+                  onClick={() => handleMarkScheduleAttendance('present')}
+                >
+                  ✓ Geldi
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${attendanceData[`${selectedSchedule.id}_${selectedSchedule.specific_date.split('T')[0]}`] === 'absent' ? 'btn-error' : 'btn-secondary'}`}
+                  onClick={() => handleMarkScheduleAttendance('absent')}
+                >
+                  ✗ Gelmedi
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${attendanceData[`${selectedSchedule.id}_${selectedSchedule.specific_date.split('T')[0]}`] === 'cancelled' ? 'btn-secondary' : 'btn-secondary'}`}
+                  onClick={() => handleMarkScheduleAttendance('cancelled')}
+                  style={{
+                    backgroundColor: attendanceData[`${selectedSchedule.id}_${selectedSchedule.specific_date.split('T')[0]}`] === 'cancelled' ? '#6b7280' : undefined,
+                    color: attendanceData[`${selectedSchedule.id}_${selectedSchedule.specific_date.split('T')[0]}`] === 'cancelled' ? 'white' : undefined
+                  }}
+                >
+                  🚫 İptal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {showEditModal && (
+        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">Öğrenci Bilgilerini Düzenle</h2>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">İsim *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editForm.first_name}
+                    onChange={(e) => setEditForm({...editForm, first_name: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Soyisim *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editForm.last_name}
+                    onChange={(e) => setEditForm({...editForm, last_name: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">E-posta</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Telefon</label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Adres</label>
+                <textarea
+                  className="form-textarea"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                  rows="3"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowEditModal(false)} className="btn btn-secondary">
+                  İptal
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Kaydet
                 </button>
               </div>
             </form>

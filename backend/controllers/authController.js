@@ -1,15 +1,21 @@
 import bcrypt from 'bcrypt';
+import { validationResult } from 'express-validator';
 import pool from '../config/database.js';
 import { generateToken } from '../middleware/auth.js';
 
 // Login
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+    // Check validation results
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        error: errors.array()[0].msg,
+        errors: errors.array() 
+      });
     }
+
+    const { email, password } = req.body;
 
     // Find user
     const result = await pool.query(

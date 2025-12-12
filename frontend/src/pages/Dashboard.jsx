@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentsAPI, schedulesAPI, financialAPI, eventsAPI } from '../services/api';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
+import AttendanceModal from '../components/AttendanceModal';
 import './Dashboard.css';
+
 
 export default function Dashboard() {
   const { user, isTeacher } = useAuth();
@@ -14,7 +16,15 @@ export default function Dashboard() {
     todaySchedules: [],
     todaysPayments: []
   });
+  const [studentStats, setStudentStats] = useState({
+    total: 0,
+    active: 0,
+    inactive: 0,
+    completed: 0
+  });
   const [loading, setLoading] = useState(true);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+
 
   useEffect(() => {
     loadDashboardData();
@@ -61,14 +71,16 @@ export default function Dashboard() {
         });
       } else {
         // Admin için tüm veriler
-        const [studentsRes, schedulesRes, eventsRes, todaysPaymentsRes] = await Promise.all([
+        const [studentsRes, studentStatsRes, schedulesRes, eventsRes, todaysPaymentsRes] = await Promise.all([
           studentsAPI.getAll(),
+          studentsAPI.getStats(),
           schedulesAPI.getAll(),
           eventsAPI.getAll(),
           financialAPI.getTodaysPayments()
         ]);
 
         const students = studentsRes.data;
+        const studentStatsData = studentStatsRes.data;
         const schedules = schedulesRes.data;
         const events = eventsRes.data;
         const todaysPayments = todaysPaymentsRes.data;
@@ -108,6 +120,8 @@ export default function Dashboard() {
           todaySchedules: [...todaySchedules, ...todayEvents].slice(0, 10),
           todaysPayments
         });
+
+        setStudentStats(studentStatsData);
       }
     } catch (error) {
       console.error('Dashboard data load error:', error);
@@ -339,38 +353,46 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Students Card */}
+        {/* Student Statistics Card */}
         <div className="dashboard-card card-gradient-2">
           <div className="card-icon">👨‍🎓</div>
           <div className="card-content">
-            <h3 className="card-title">Son Kayıtlar</h3>
-            <p className="card-description">Yeni eklenen öğrenciler</p>
-            <div className="card-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
-              {stats.recentStudents.length > 0 ? (
-                stats.recentStudents.map((student) => (
-                  <div key={student.id} className="list-item">
-                    <span className="item-name">
-                      {student.first_name} {student.last_name}
-                    </span>
-                    <span className="badge badge-success">Yeni</span>
-                  </div>
-                ))
-              ) : (
-                <p className="text-secondary text-sm">Henüz öğrenci yok</p>
-              )}
+            <h3 className="card-title">Öğrenci Durumları</h3>
+            <p className="card-description">Toplam öğrenci istatistikleri</p>
+            <div className="student-stats-grid">
+              <div className="stat-box stat-total">
+                <div className="stat-number">{studentStats.total}</div>
+                <div className="stat-label">Toplam</div>
+              </div>
+              <div className="stat-box stat-active">
+                <div className="stat-number">{studentStats.active}</div>
+                <div className="stat-label">Aktif</div>
+              </div>
+              <div className="stat-box stat-inactive">
+                <div className="stat-number">{studentStats.inactive}</div>
+                <div className="stat-label">Pasif</div>
+              </div>
+              <div className="stat-box stat-completed">
+                <div className="stat-number">{studentStats.completed}</div>
+                <div className="stat-label">Tamamlanan</div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Student Participation Card */}
-        <div className="dashboard-card card-gradient-3">
+        <div 
+          className="dashboard-card card-gradient-3 clickable-card"
+          onClick={() => setShowAttendanceModal(true)}
+          style={{ cursor: 'pointer' }}
+        >
           <div className="card-icon">📊</div>
           <div className="card-content">
             <h3 className="card-title">Öğrenci Katılımı</h3>
-            <p className="card-description">Bugünkü yoklama özeti</p>
+            <p className="card-description">Bugünkü yoklama (Tıklayın)</p>
             <div className="stat-display">
-              <div className="stat-number">{stats.totalStudents}</div>
-              <div className="stat-label">Toplam Öğrenci</div>
+              <div className="stat-number">{stats.todaySchedules.length}</div>
+              <div className="stat-label">Bugünkü Ders</div>
             </div>
           </div>
         </div>
@@ -447,6 +469,12 @@ export default function Dashboard() {
           </a>
         </div>
       </div>
+
+      <AttendanceModal
+        show={showAttendanceModal}
+        onClose={() => setShowAttendanceModal(false)}
+        onAttendanceMarked={loadDashboardData}
+      />
     </div>
   );
 }

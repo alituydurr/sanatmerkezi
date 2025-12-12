@@ -30,6 +30,7 @@ export default function Schedule() {
     teacher_id: '',
     price: '',
     is_free: false,
+    teacher_fee: '',
     notes: ''
   });
   const [expandedSchedule, setExpandedSchedule] = useState(null);
@@ -248,6 +249,7 @@ export default function Schedule() {
       teacher_id: '',
       price: '',
       is_free: false,
+      teacher_fee: '',
       notes: ''
     });
     setShowDayDetailModal(false);
@@ -272,6 +274,7 @@ export default function Schedule() {
         teacher_id: '',
         price: '',
         is_free: false,
+        teacher_fee: '',
         notes: ''
       });
       
@@ -979,6 +982,24 @@ export default function Schedule() {
                     <span>Ücretsiz</span>
                   </label>
                 </div>
+              </div>
+
+              {/* Teacher Fee */}
+              <div className="form-group">
+                <label className="form-label">Öğretmen Ücreti (₺) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input"
+                  value={appointmentData.teacher_fee || ''}
+                  onChange={(e) => setAppointmentData({...appointmentData, teacher_fee: e.target.value})}
+                  placeholder="Öğretmene ödenecek tutar"
+                  required
+                />
+                <small style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                  ℹ️ Kurum ücreti ücretsiz olsa bile öğretmene ödenecek tutar
+                </small>
               </div>
 
               {/* Notes */}

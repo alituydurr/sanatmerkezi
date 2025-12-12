@@ -19,6 +19,7 @@ export const createAppointment = async (req, res, next) => {
       teacher_id,
       price,
       is_free,
+      teacher_fee,
       notes
     } = req.body;
 
@@ -46,11 +47,12 @@ export const createAppointment = async (req, res, next) => {
         start_time,
         end_time,
         room,
-        specific_date
+        specific_date,
+        teacher_fee
       )
-      VALUES ($1, $2, $3, $4, $5, $6, TO_DATE($7, 'YYYY-MM-DD'))
+      VALUES ($1, $2, $3, $4, $5, $6, TO_DATE($7, 'YYYY-MM-DD'), $8)
       RETURNING id, course_id, teacher_id, day_of_week, start_time, end_time, room, 
-                specific_date::text as specific_date, created_at, updated_at`,
+                specific_date::text as specific_date, teacher_fee, created_at, updated_at`,
       [
         content_type === 'course' ? course_id : null,
         teacher_id || null,
@@ -58,7 +60,8 @@ export const createAppointment = async (req, res, next) => {
         start_time,
         end_time,
         `${content_type === 'appointment' ? 'RANDEVU' : content_type === 'workshop' ? 'WORKSHOP' : content_type === 'event' ? 'ETKİNLİK' : content_type.toUpperCase()}: ${student_name} ${student_surname}${notes ? ' - ' + notes : ''}`,
-        date
+        date,
+        teacher_fee || 0
       ]
     );
 

@@ -14,41 +14,32 @@ import eventRoutes from './routes/events.js';
 import financialRoutes from './routes/financial.js';
 import appointmentRoutes from './routes/appointments.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { apiLimiter } from './middleware/rateLimiter.js';
+import { httpsRedirect, helmetConfig, getCorsConfig, sanitizeForLogging } from './config/security.js';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// HTTPS redirect (production only)
+app.use(httpsRedirect);
+
 // Security Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
-    },
-  },
-  crossOriginEmbedderPolicy: false,
-}));
+app.use(helmet(helmetConfig));
 
-// CORS Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// CORS Middleware with strict configuration
+app.use(cors(getCorsConfig()));
 
-// Request logging
+// Body parsers with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging with sanitization
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  const sanitizedBody = sanitizeForLogging(req.body);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`, 
+    Object.keys(sanitizedBody).length > 0 ? { body: sanitizedBody } : '');
   next();
 });
 
@@ -56,6 +47,9 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Sanat Merkezi API is running' });
 });
+
+// Apply rate limiting to all API routes
+app.use('/api/', apiLimiter);
 
 // API Routes
 app.use('/api/auth', authRoutes);

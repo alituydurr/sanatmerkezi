@@ -1,0 +1,106 @@
+.attendance-modal {
+  max-width: 900px;
+  max-height: 80vh;
+}
+
+.lessons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-2);
+}
+
+.lesson-card {
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lesson-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary);
+}
+
+.lesson-time {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--primary);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--border-color);
+}
+
+.lesson-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.lesson-teacher,
+.lesson-room {
+  margin: var(--space-1) 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.lesson-attendance-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: auto;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-color);
+}
+
+.attendance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.attendance-badge.present {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.attendance-badge.absent {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.attendance-badge.cancelled {
+  background-color: #e5e7eb;
+  color: #1f2937;
+}
+
+.attendance-badge.unmarked {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.no-students {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--text-secondary);
+}
+
+.empty-state p {
+  font-size: 1.125rem;
+  margin: 0;
+}

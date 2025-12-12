@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getAllStudents,
+  getStudentStats,
   getStudentById,
   createStudent,
   updateStudent,
@@ -15,6 +16,7 @@ import { verifyToken, requireAdmin, requireTeacherOrAdmin } from '../middleware/
 const router = express.Router();
 
 router.get('/', verifyToken, requireTeacherOrAdmin, getAllStudents);
+router.get('/stats/summary', verifyToken, requireTeacherOrAdmin, getStudentStats);
 router.get('/:id', verifyToken, requireTeacherOrAdmin, getStudentById);
 router.get('/:id/schedules', verifyToken, requireTeacherOrAdmin, getStudentSchedules);
 router.post('/', verifyToken, requireAdmin, createStudent);

@@ -12,19 +12,30 @@ export const getAllSchedules = async (req, res, next) => {
                cs.start_time, cs.end_time, cs.start_date, cs.end_date,
                cs.is_recurring, cs.room, cs.notes, cs.created_at, cs.updated_at,
                cs.specific_date::text as specific_date,
+               cs.student_id,
           c.name as course_name,
           c.course_type,
           t.first_name as teacher_first_name,
           t.last_name as teacher_last_name,
-          json_agg(DISTINCT jsonb_build_object(
-            'id', s.id,
-            'first_name', s.first_name,
-            'last_name', s.last_name
-          )) FILTER (WHERE s.id IS NOT NULL) as students
+          CASE 
+            WHEN cs.student_id IS NOT NULL THEN
+              json_agg(DISTINCT jsonb_build_object(
+                'id', s_individual.id,
+                'first_name', s_individual.first_name,
+                'last_name', s_individual.last_name
+              )) FILTER (WHERE s_individual.id IS NOT NULL)
+            ELSE
+              json_agg(DISTINCT jsonb_build_object(
+                'id', s.id,
+                'first_name', s.first_name,
+                'last_name', s.last_name
+              )) FILTER (WHERE s.id IS NOT NULL)
+          END as students
         FROM course_schedules cs
         LEFT JOIN courses c ON cs.course_id = c.id
         LEFT JOIN teachers t ON cs.teacher_id = t.id
-        LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.status = 'active'
+        LEFT JOIN students s_individual ON cs.student_id = s_individual.id
+        LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.status = 'active' AND cs.student_id IS NULL
         LEFT JOIN students s ON sc.student_id = s.id
         GROUP BY cs.id, c.id, t.id
         ORDER BY cs.day_of_week, cs.start_time
@@ -36,19 +47,30 @@ export const getAllSchedules = async (req, res, next) => {
                cs.start_time, cs.end_time, cs.start_date, cs.end_date,
                cs.is_recurring, cs.room, cs.notes, cs.created_at, cs.updated_at,
                cs.specific_date::text as specific_date,
+               cs.student_id,
           c.name as course_name,
           c.course_type,
           t.first_name as teacher_first_name,
           t.last_name as teacher_last_name,
-          json_agg(DISTINCT jsonb_build_object(
-            'id', s.id,
-            'first_name', s.first_name,
-            'last_name', s.last_name
-          )) FILTER (WHERE s.id IS NOT NULL) as students
+          CASE 
+            WHEN cs.student_id IS NOT NULL THEN
+              json_agg(DISTINCT jsonb_build_object(
+                'id', s_individual.id,
+                'first_name', s_individual.first_name,
+                'last_name', s_individual.last_name
+              )) FILTER (WHERE s_individual.id IS NOT NULL)
+            ELSE
+              json_agg(DISTINCT jsonb_build_object(
+                'id', s.id,
+                'first_name', s.first_name,
+                'last_name', s.last_name
+              )) FILTER (WHERE s.id IS NOT NULL)
+          END as students
         FROM course_schedules cs
         INNER JOIN courses c ON cs.course_id = c.id
         INNER JOIN teachers t ON cs.teacher_id = t.id
-        LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.status = 'active'
+        LEFT JOIN students s_individual ON cs.student_id = s_individual.id
+        LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.status = 'active' AND cs.student_id IS NULL
         LEFT JOIN students s ON sc.student_id = s.id
         WHERE t.user_id = $1
         GROUP BY cs.id, c.id, t.id

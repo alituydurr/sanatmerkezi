@@ -330,22 +330,30 @@ export default function FinancialReports() {
                         <th>Öğretmen</th>
                         <th>Toplam Saat</th>
                         <th>Saat Ücreti</th>
+                        <th>Deneme Dersi</th>
                         <th>Toplam Tutar</th>
                         <th>Ödenen</th>
                         <th>Tarih</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {report.expenses.teacher_payments.map((payment, idx) => (
+                      {report.expenses.teacher_payments.map((payment, idx) => {
+                        // Calculate trial lessons fee
+                        const normalLessonsFee = parseFloat(payment.total_hours || 0) * parseFloat(payment.hourly_rate || 0);
+                        const trialLessonsFee = parseFloat(payment.total_amount || 0) - normalLessonsFee;
+                        
+                        return (
                         <tr key={idx}>
                           <td>{payment.teacher_name}</td>
                           <td>{payment.total_hours} saat</td>
                           <td>{formatCurrencyWithSymbol(payment.hourly_rate)}</td>
+                          <td>{formatCurrencyWithSymbol(trialLessonsFee)}</td>
                           <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
                           <td className="text-error">{formatCurrencyWithSymbol(payment.paid_amount)}</td>
                           <td>{new Date(payment.payment_date).toLocaleDateString('tr-TR')}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

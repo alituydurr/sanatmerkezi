@@ -1,20 +1,35 @@
 import express from 'express';
-import { verifyToken, requireTeacherOrAdmin } from '../middleware/auth.js';
 import {
-  confirmAttendance,
-  getTeacherAttendance,
-  getAllAttendance
+  markAttendance,
+  cancelLesson,
+  getAttendanceBySchedule,
+  getAttendanceByStudent,
+  getStudentAttendanceStats,
+  getTodayLessonsWithAttendance
 } from '../controllers/attendanceController.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Ders onaylama (öğretmen veya admin)
-router.post('/confirm', verifyToken, requireTeacherOrAdmin, confirmAttendance);
+// All routes require authentication
+router.use(verifyToken);
 
-// Öğretmenin kendi attendance kayıtları
-router.get('/teacher', verifyToken, requireTeacherOrAdmin, getTeacherAttendance);
+// Mark attendance for a student
+router.post('/mark', markAttendance);
 
-// Tüm attendance kayıtları (admin için)
-router.get('/all', verifyToken, requireTeacherOrAdmin, getAllAttendance);
+// Cancel entire lesson
+router.post('/cancel-lesson', cancelLesson);
+
+// Get attendance for a specific schedule and date
+router.get('/schedule/:scheduleId/:date', getAttendanceBySchedule);
+
+// Get attendance for a specific student
+router.get('/student/:studentId', getAttendanceByStudent);
+
+// Get attendance statistics for a student
+router.get('/student/:studentId/stats', getStudentAttendanceStats);
+
+// Get today's lessons with attendance status
+router.get('/today', getTodayLessonsWithAttendance);
 
 export default router;

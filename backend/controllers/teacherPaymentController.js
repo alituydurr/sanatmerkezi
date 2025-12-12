@@ -8,49 +8,78 @@ export const calculateTeacherHours = async (req, res, next) => {
     const [year, month] = monthYear.split('-');
     const startDate = `${year}-${month.padStart(2, '0')}-01`;
     
-    // Get last day of month: Create date for 1st day of NEXT month, then subtract 1 day
-    // For January (month=01), we want the last day of January
-    // new Date(2026, 1, 0) gives us Dec 31, 2025 (wrong!)
-    // We need: new Date(2026, 2, 0) which gives us Jan 31, 2026 (correct!)
+    // Get last day of month
     const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
     const endDate = `${year}-${month.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    // Calculate total hours from schedules with specific_date in this month
-    const result = await pool.query(`
+    // Get teacher info
+    const teacherInfo = await pool.query(
+      'SELECT first_name, last_name FROM teachers WHERE id = $1',
+      [teacherId]
+    );
+
+    if (teacherInfo.rows.length === 0) {
+      return res.status(404).json({ error: 'Teacher not found' });
+    }
+
+    // Calculate total hours from NORMAL lessons (teacher_fee = 0) where attendance is 'present'
+    const normalLessonsResult = await pool.query(`
       SELECT 
-        cs.teacher_id,
-        t.first_name,
-        t.last_name,
-        COUNT(cs.id) as total_classes,
+        COUNT(DISTINCT cs.id) as total_classes,
         SUM(
           EXTRACT(EPOCH FROM (cs.end_time - cs.start_time)) / 3600
         ) as total_hours
       FROM course_schedules cs
-      INNER JOIN teachers t ON cs.teacher_id = t.id
+      LEFT JOIN attendance a ON cs.id = a.schedule_id 
+        AND a.attendance_date = cs.specific_date::date
+        AND a.status = 'present'
       WHERE cs.teacher_id = $1
         AND cs.specific_date::date >= $2::date
         AND cs.specific_date::date <= $3::date
-      GROUP BY cs.teacher_id, t.first_name, t.last_name
+        AND (cs.teacher_fee IS NULL OR cs.teacher_fee = 0)
+        AND a.id IS NOT NULL
     `, [teacherId, startDate, endDate]);
 
-    if (result.rows.length === 0) {
-      return res.json({
-        teacher_id: teacherId,
-        month_year: monthYear,
-        total_hours: 0,
-        total_classes: 0
-      });
-    }
+    // Calculate total fee from TRIAL LESSONS/APPOINTMENTS (teacher_fee > 0) where attendance is 'present'
+    const trialLessonsResult = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT cs.id) as trial_count,
+        SUM(cs.teacher_fee) as trial_total_fee,
+        json_agg(
+          json_build_object(
+            'date', cs.specific_date::text,
+            'fee', cs.teacher_fee,
+            'description', cs.room
+          ) ORDER BY cs.specific_date
+        ) as trial_lessons
+      FROM course_schedules cs
+      LEFT JOIN attendance a ON cs.id = a.schedule_id 
+        AND a.attendance_date = cs.specific_date::date
+        AND a.status = 'present'
+      WHERE cs.teacher_id = $1
+        AND cs.specific_date::date >= $2::date
+        AND cs.specific_date::date <= $3::date
+        AND cs.teacher_fee > 0
+        AND a.id IS NOT NULL
+    `, [teacherId, startDate, endDate]);
 
-    const data = result.rows[0];
-    const totalHours = parseFloat(data.total_hours || 0);
+    const normalData = normalLessonsResult.rows[0];
+    const trialData = trialLessonsResult.rows[0];
+    
+    const totalHours = parseFloat(normalData.total_hours || 0);
+    const totalClasses = parseInt(normalData.total_classes || 0);
+    const trialCount = parseInt(trialData.trial_count || 0);
+    const trialTotalFee = parseFloat(trialData.trial_total_fee || 0);
 
     res.json({
       teacher_id: teacherId,
-      teacher_name: `${data.first_name} ${data.last_name}`,
+      teacher_name: `${teacherInfo.rows[0].first_name} ${teacherInfo.rows[0].last_name}`,
       month_year: monthYear,
       total_hours: totalHours.toFixed(2),
-      total_classes: parseInt(data.total_classes)
+      total_classes: totalClasses,
+      trial_lessons_count: trialCount,
+      trial_lessons_fee: trialTotalFee.toFixed(2),
+      trial_lessons: trialData.trial_lessons || []
     });
   } catch (error) {
     next(error);
@@ -91,15 +120,25 @@ export const getAllTeacherPayments = async (req, res, next) => {
 // Create or update teacher payment
 export const createTeacherPayment = async (req, res, next) => {
   try {
-    const { teacher_id, month_year, total_hours, hourly_rate, notes } = req.body;
+    const { teacher_id, month_year, total_hours, hourly_rate, trial_lessons_fee, notes } = req.body;
 
-    if (!teacher_id || !month_year || !total_hours || !hourly_rate) {
+    if (!teacher_id || !month_year || !hourly_rate) {
       return res.status(400).json({ 
-        error: 'Teacher ID, month/year, total hours, and hourly rate are required' 
+        error: 'Teacher ID, month/year, and hourly rate are required' 
       });
     }
 
-    const totalAmount = parseFloat(total_hours) * parseFloat(hourly_rate);
+    // Calculate total amount: (hours × hourly_rate) + trial_lessons_fee
+    const normalLessonsFee = parseFloat(total_hours || 0) * parseFloat(hourly_rate);
+    const trialFee = parseFloat(trial_lessons_fee || 0);
+    const totalAmount = normalLessonsFee + trialFee;
+
+    // Validate that there's at least some payment
+    if (totalAmount <= 0) {
+      return res.status(400).json({ 
+        error: 'Bu öğretmenin seçilen ay içerisinde tamamlanmış dersi bulunmamaktadır.' 
+      });
+    }
 
     // Check if already exists (including cancelled)
     const existing = await pool.query(
@@ -127,7 +166,7 @@ export const createTeacherPayment = async (req, res, next) => {
               updated_at = CURRENT_TIMESTAMP
           WHERE teacher_id = $5 AND month_year = $6
           RETURNING *
-        `, [total_hours, hourly_rate, totalAmount, notes, teacher_id, month_year]);
+        `, [total_hours || 0, hourly_rate, totalAmount, notes, teacher_id, month_year]);
       } else {
         // Update existing active payment
         result = await pool.query(`
@@ -140,7 +179,7 @@ export const createTeacherPayment = async (req, res, next) => {
               updated_at = CURRENT_TIMESTAMP
           WHERE teacher_id = $5 AND month_year = $6
           RETURNING *
-        `, [total_hours, hourly_rate, totalAmount, notes, teacher_id, month_year]);
+        `, [total_hours || 0, hourly_rate, totalAmount, notes, teacher_id, month_year]);
       }
     } else {
       // Create new
@@ -151,7 +190,7 @@ export const createTeacherPayment = async (req, res, next) => {
         )
         VALUES ($1, $2, $3, $4, $5, $5, $6)
         RETURNING *
-      `, [teacher_id, month_year, total_hours, hourly_rate, totalAmount, notes]);
+      `, [teacher_id, month_year, total_hours || 0, hourly_rate, totalAmount, notes]);
     }
 
     res.status(201).json(result.rows[0]);

@@ -42,12 +42,12 @@ export const getTeacherById = async (req, res, next) => {
       WHERE tc.teacher_id = $1
     `, [id]);
 
-    // Ders programı (schedules)
+    // Ders programı (schedules) - Sadece recurring dersler
     const schedulesResult = await pool.query(`
       SELECT cs.*, c.name as course_name
       FROM course_schedules cs
       INNER JOIN courses c ON cs.course_id = c.id
-      WHERE cs.teacher_id = $1
+      WHERE cs.teacher_id = $1 AND cs.is_recurring = true
       ORDER BY cs.day_of_week, cs.start_time
     `, [id]);
 
@@ -229,6 +229,74 @@ export const removeTeacherFromCourse = async (req, res, next) => {
     }
 
     res.json({ message: 'Teacher removed from course successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get teacher schedules (all lessons including student-based and daily appointments)
+export const getTeacherSchedules = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch all schedules for this teacher
+    // Include student name from students table OR from room field (for appointments)
+    const result = await pool.query(`
+      SELECT 
+        cs.id,
+        cs.course_id,
+        cs.teacher_id,
+        cs.student_id,
+        cs.day_of_week,
+        cs.start_time,
+        cs.end_time,
+        cs.room,
+        cs.specific_date::text as specific_date,
+        cs.is_recurring,
+        c.name as course_name,
+        c.course_type,
+        s.first_name as student_first_name,
+        s.last_name as student_last_name,
+        t.first_name as teacher_first_name,
+        t.last_name as teacher_last_name
+      FROM course_schedules cs
+      LEFT JOIN courses c ON cs.course_id = c.id
+      LEFT JOIN students s ON cs.student_id = s.id
+      LEFT JOIN teachers t ON cs.teacher_id = t.id
+      WHERE cs.teacher_id = $1
+        AND cs.specific_date IS NOT NULL
+      ORDER BY cs.specific_date DESC, cs.start_time
+    `, [id]);
+
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get teacher attendance data
+export const getTeacherAttendance = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch all attendance records for schedules taught by this teacher
+    const result = await pool.query(`
+      SELECT 
+        a.id,
+        a.schedule_id,
+        a.student_id,
+        a.attendance_date::text as attendance_date,
+        a.status,
+        a.notes,
+        a.created_at,
+        cs.specific_date::text as schedule_date
+      FROM attendance a
+      INNER JOIN course_schedules cs ON a.schedule_id = cs.id
+      WHERE cs.teacher_id = $1
+      ORDER BY a.attendance_date DESC
+    `, [id]);
+
+    res.json(result.rows);
   } catch (error) {
     next(error);
   }

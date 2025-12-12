@@ -3,7 +3,15 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Critical security check: JWT_SECRET must be defined
+if (!JWT_SECRET) {
+  console.error('❌ FATAL ERROR: JWT_SECRET is not defined in environment variables.');
+  console.error('   Please set JWT_SECRET in your .env file.');
+  console.error('   Example: JWT_SECRET=your_super_secret_random_string_here');
+  process.exit(1);
+}
 
 // Generate JWT token
 export const generateToken = (user) => {
