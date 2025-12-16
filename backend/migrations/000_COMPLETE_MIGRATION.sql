@@ -225,6 +225,12 @@ CREATE TABLE teacher_payments (
   cancelled_at TIMESTAMP,
   cancelled_by INTEGER REFERENCES users(id),
   notes TEXT,
+  -- Genel Gider Modülü Alanları
+  payment_type VARCHAR(20) DEFAULT 'teacher_salary' CHECK (payment_type IN ('teacher_salary', 'general_expense')),
+  expense_category VARCHAR(100),
+  invoice_number VARCHAR(50),
+  vendor VARCHAR(200),
+  created_by INTEGER REFERENCES users(id),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(teacher_id, month_year)
@@ -262,6 +268,12 @@ CREATE TABLE attendance (
 
 COMMENT ON TABLE attendance IS 'Tracks student attendance for each scheduled lesson';
 COMMENT ON COLUMN attendance.status IS 'present: student attended, absent: student did not attend, cancelled: lesson was cancelled';
+COMMENT ON COLUMN teacher_payments.payment_type IS 'teacher_salary: Öğretmen maaşı, general_expense: Genel gider';
+COMMENT ON COLUMN teacher_payments.expense_category IS 'Sadece general_expense için: Kira, Elektrik, Su, Malzeme, vb.';
+COMMENT ON COLUMN teacher_payments.invoice_number IS 'Fatura numarası';
+COMMENT ON COLUMN teacher_payments.vendor IS 'Tedarikçi veya firma adı';
+COMMENT ON COLUMN teacher_payments.created_by IS 'Kaydı oluşturan kullanıcının ID si';
+
 
 -- ============================================
 -- INDEXES (Performans için)
