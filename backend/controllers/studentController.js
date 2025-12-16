@@ -287,7 +287,7 @@ export const getStudentSchedules = async (req, res, next) => {
     const result = await pool.query(`
       SELECT 
         cs.id,
-        cs.specific_date,
+        cs.specific_date::text as specific_date,
         cs.day_of_week,
         cs.start_time,
         cs.end_time,

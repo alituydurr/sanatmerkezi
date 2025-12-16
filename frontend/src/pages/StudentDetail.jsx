@@ -87,9 +87,13 @@ export default function StudentDetail() {
     }
 
     try {
-      // Calculate all dates between start_date and end_date for selected days
-      const startDate = new Date(scheduleForm.start_date);
-      const endDate = new Date(scheduleForm.end_date);
+      // ✅ FIX: Parse dates properly to avoid timezone issues
+      // Input format: "2025-12-15" (YYYY-MM-DD)
+      const [startYear, startMonth, startDay] = scheduleForm.start_date.split('-').map(Number);
+      const [endYear, endMonth, endDay] = scheduleForm.end_date.split('-').map(Number);
+      
+      const startDate = new Date(startYear, startMonth - 1, startDay);
+      const endDate = new Date(endYear, endMonth - 1, endDay);
       const schedulesToCreate = [];
 
       // Iterate through each day in the range
@@ -98,11 +102,17 @@ export default function StudentDetail() {
         
         // If this day is selected, add it to schedules
         if (scheduleForm.selected_days.includes(dayOfWeek)) {
+          // Format date as YYYY-MM-DD in local timezone
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const dateString = `${year}-${month}-${day}`;
+          
           schedulesToCreate.push({
             course_id: scheduleForm.course_id,
             teacher_id: scheduleForm.teacher_id,
             student_id: student.id, // Link schedule to this specific student
-            specific_date: date.toISOString().split('T')[0],
+            specific_date: dateString,
             day_of_week: dayOfWeek,
             start_time: scheduleForm.start_time,
             end_time: scheduleForm.end_time,
@@ -181,18 +191,18 @@ export default function StudentDetail() {
         status: status
       });
 
-      // Update local state immediately for instant feedback
-      const key = `${selectedSchedule.id}_${normalizedDate}`;
-      setAttendanceData(prev => ({
-        ...prev,
-        [key]: status
-      }));
-      
       // Close modal immediately
       setShowScheduleDetailModal(false);
       
-      // ✅ FIXED: Removed loadData() call to prevent state override
-      // Local state update is sufficient for instant UI feedback
+      // ✅ Reload attendance data to sync with teacher detail page
+      const attendanceRes = await attendanceAPI.getByStudent(student.id);
+      const attendanceMap = {};
+      attendanceRes.data.forEach(att => {
+        const normalizedDate = att.attendance_date.split('T')[0];
+        const key = `${att.schedule_id}_${normalizedDate}`;
+        attendanceMap[key] = att.status;
+      });
+      setAttendanceData(attendanceMap);
     } catch (error) {
       console.error('Error marking attendance:', error);
       alert('Yoklama işaretlenirken hata oluştu');
@@ -496,12 +506,10 @@ export default function StudentDetail() {
                           >
                             <div className="lesson-date">
                               {schedule.specific_date ? (() => {
+                                // ✅ FIX: Use string manipulation to avoid timezone issues
                                 const [year, month, day] = schedule.specific_date.split('T')[0].split('-');
-                                const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                                return date.toLocaleDateString('tr-TR', {
-                                  day: '2-digit',
-                                  month: 'short'
-                                }).toUpperCase();
+                                const monthNames = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+                                return `${day} ${monthNames[parseInt(month) - 1]}`;
                               })() : '-'}
                             </div>
                             <div className="lesson-time">
@@ -714,12 +722,15 @@ export default function StudentDetail() {
               <div className="detail-row">
                 <span className="detail-label">Güncel Tarih:</span>
                 <span className="detail-value">
-                  {new Date(selectedSchedule.specific_date).toLocaleDateString('tr-TR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  {(() => {
+                    // ✅ FIX: Parse date string directly to avoid timezone issues
+                    const [year, month, day] = selectedSchedule.specific_date.split('T')[0].split('-');
+                    // Create date in UTC to get correct day of week
+                    const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+                    const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+                    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+                    return `${parseInt(day)} ${monthNames[parseInt(month) - 1]} ${year} ${dayNames[date.getUTCDay()]}`;
+                  })()}
                 </span>
               </div>
             </div>

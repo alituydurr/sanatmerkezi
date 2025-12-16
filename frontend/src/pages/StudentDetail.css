@@ -113,7 +113,7 @@
 
 .lesson-date-card {
   position: relative;
-  background: white;
+  /* background: white; - Removed to allow inline backgroundColor for attendance colors */
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
@@ -130,7 +130,7 @@
 
 .lesson-date-card:hover {
   border-color: var(--primary-400);
-  background: var(--primary-50);
+  /* background: var(--primary-50); - Removed to preserve attendance colors */
   transform: translateY(-4px);
   box-shadow: var(--shadow-md);
 }

@@ -141,7 +141,8 @@ export const getAttendanceByStudent = async (req, res, next) => {
     const { startDate, endDate } = req.query;
 
     let query = `
-      SELECT a.*, 
+      SELECT a.id, a.schedule_id, a.student_id, a.status, a.notes, a.marked_by, a.created_at,
+             a.attendance_date::text as attendance_date,
              cs.start_time, cs.end_time,
              c.name as course_name,
              t.first_name as teacher_first_name,

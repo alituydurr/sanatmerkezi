@@ -98,15 +98,18 @@ export default function TeacherDetail() {
         status: status
       });
 
-      // Update local state immediately for instant feedback
-      const key = `${selectedSchedule.id}_${normalizedDate}`;
-      setAttendanceData(prev => ({
-        ...prev,
-        [key]: status
-      }));
-      
       // Close modal immediately
       setShowScheduleDetailModal(false);
+      
+      // ✅ Reload attendance data to sync with student detail page
+      const attendanceRes = await teachersAPI.getAttendance(id);
+      const attendanceMap = {};
+      attendanceRes.data.forEach(att => {
+        const normalizedDate = att.attendance_date.split('T')[0];
+        const key = `${att.schedule_id}_${normalizedDate}`;
+        attendanceMap[key] = att.status;
+      });
+      setAttendanceData(attendanceMap);
     } catch (error) {
       console.error('Error marking attendance:', error);
       alert('Yoklama işaretlenirken hata oluştu');
@@ -330,12 +333,10 @@ export default function TeacherDetail() {
                         >
                           <div className="lesson-date">
                             {schedule.specific_date ? (() => {
+                              // ✅ FIX: Use string manipulation to avoid timezone issues
                               const [year, month, day] = schedule.specific_date.split('T')[0].split('-');
-                              const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-                              return date.toLocaleDateString('tr-TR', {
-                                day: '2-digit',
-                                month: 'short'
-                              }).toUpperCase();
+                              const monthNames = ['OCA', 'ŞUB', 'MAR', 'NİS', 'MAY', 'HAZ', 'TEM', 'AĞU', 'EYL', 'EKİ', 'KAS', 'ARA'];
+                              return `${day} ${monthNames[parseInt(month) - 1]}`;
                             })() : '-'}
                           </div>
                           <div className="lesson-time">
@@ -422,12 +423,15 @@ export default function TeacherDetail() {
               <div className="detail-row">
                 <span className="detail-label">Tarih:</span>
                 <span className="detail-value">
-                  {new Date(selectedSchedule.specific_date).toLocaleDateString('tr-TR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
+                  {(() => {
+                    // ✅ FIX: Parse date string directly to avoid timezone issues
+                    const [year, month, day] = selectedSchedule.specific_date.split('T')[0].split('-');
+                    // Create date in UTC to get correct day of week
+                    const date = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day)));
+                    const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+                    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+                    return `${parseInt(day)} ${monthNames[parseInt(month) - 1]} ${year} ${dayNames[date.getUTCDay()]}`;
+                  })()}
                 </span>
               </div>
               <div className="detail-row">
