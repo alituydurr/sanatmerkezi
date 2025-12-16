@@ -13,9 +13,11 @@ export default function TeacherPayments() {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [showCalculateModal, setShowCalculateModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showPartialCancelModal, setShowPartialCancelModal] = useState(false);
   const [selectedTeacherPayment, setSelectedTeacherPayment] = useState(null);
-  const [cancelReason, setCancelReason] = useState('');
+  const [partialCancelReason, setPartialCancelReason] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [calculateForm, setCalculateForm] = useState({
     teacher_id: '',
     month_year: '',
@@ -27,6 +29,37 @@ export default function TeacherPayments() {
     payment_method: 'cash',
     notes: ''
   });
+  const [expenseForm, setExpenseForm] = useState({
+    expense_date: new Date().toISOString().split('T')[0],
+    expense_category: '',
+    description: '',
+    amount: '',
+    invoice_number: '',
+    vendor: '',
+    notes: ''
+  });
+
+  // Gider Kategorileri
+  const EXPENSE_CATEGORIES = [
+    { value: 'kira', label: '🏢 Kira', icon: '🏢' },
+    { value: 'elektrik', label: '⚡ Elektrik', icon: '⚡' },
+    { value: 'su', label: '💧 Su', icon: '💧' },
+    { value: 'internet', label: '🌐 İnternet', icon: '🌐' },
+    { value: 'telefon', label: '📱 Telefon', icon: '📱' },
+    { value: 'malzeme', label: '🎨 Malzeme', icon: '🎨' },
+    { value: 'temizlik', label: '🧹 Temizlik', icon: '🧹' },
+    { value: 'bakim_onarim', label: '🔧 Bakım-Onarım', icon: '🔧' },
+    { value: 'kirtasiye', label: '📚 Kırtasiye', icon: '📚' },
+    { value: 'ulasim', label: '🚗 Ulaşım', icon: '🚗' },
+    { value: 'yemek_ikram', label: '🍽️ Yemek-İkram', icon: '🍽️' },
+    { value: 'reklam', label: '📢 Reklam-Pazarlama', icon: '📢' },
+    { value: 'diger', label: '💼 Diğer', icon: '💼' }
+  ];
+
+  const getCategoryLabel = (value) => {
+    const category = EXPENSE_CATEGORIES.find(cat => cat.value === value);
+    return category ? category.label : value;
+  };
 
   useEffect(() => {
     loadData();
@@ -122,27 +155,50 @@ export default function TeacherPayments() {
     setShowPaymentModal(true);
   };
 
-  const openCancelModal = (tp) => {
-    setSelectedTeacherPayment(tp);
-    setCancelReason('');
-    setShowCancelModal(true);
+
+  const handleExpenseSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await teacherPaymentsAPI.createGeneralExpense(expenseForm);
+      setShowExpenseModal(false);
+      setExpenseForm({
+        expense_date: new Date().toISOString().split('T')[0],
+        expense_category: '',
+        description: '',
+        amount: '',
+        invoice_number: '',
+        vendor: '',
+        notes: ''
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      alert('Gider eklenirken hata oluştu');
+    }
   };
 
-  const handleCancelPayment = async (e) => {
+  const openPartialCancelModal = (tp) => {
+    setSelectedTeacherPayment(tp);
+    setPartialCancelReason('');
+    setShowPaymentModal(false); // Close payment modal if open
+    setShowPartialCancelModal(true);
+  };
+
+  const handlePartialCancelPayment = async (e) => {
     e.preventDefault();
-    if (!cancelReason.trim()) {
+    if (!partialCancelReason.trim()) {
       alert('Lütfen iptal nedenini belirtin');
       return;
     }
     try {
-      await teacherPaymentsAPI.cancel(selectedTeacherPayment.id, cancelReason);
-      setShowCancelModal(false);
+      await teacherPaymentsAPI.partialCancel(selectedTeacherPayment.id, partialCancelReason);
+      setShowPartialCancelModal(false);
       setSelectedTeacherPayment(null);
-      setCancelReason('');
+      setPartialCancelReason('');
       loadData();
     } catch (error) {
-      console.error('Error cancelling payment:', error);
-      alert('Ödeme iptal edilirken hata oluştu');
+      console.error('Error partial cancelling payment:', error);
+      alert('Kalan tutar iptal edilirken hata oluştu');
     }
   };
 
@@ -150,6 +206,32 @@ export default function TeacherPayments() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   };
+
+  // Filter teacher payments and general expenses
+  const filteredTeacherPayments = teacherPayments.filter(payment => {
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    const isTeacherPayment = payment.payment_type === 'teacher_salary' || !payment.payment_type;
+    
+    if (isTeacherPayment) {
+      return (
+        payment.first_name?.toLowerCase().includes(searchLower) ||
+        payment.last_name?.toLowerCase().includes(searchLower) ||
+        payment.month_year?.toLowerCase().includes(searchLower)
+      );
+    } else {
+      // General expense
+      return (
+        getCategoryLabel(payment.expense_category)?.toLowerCase().includes(searchLower) ||
+        payment.expense_category?.toLowerCase().includes(searchLower) ||
+        payment.vendor?.toLowerCase().includes(searchLower) ||
+        payment.invoice_number?.toLowerCase().includes(searchLower) ||
+        payment.notes?.toLowerCase().includes(searchLower) ||
+        payment.month_year?.toLowerCase().includes(searchLower)
+      );
+    }
+  });
 
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
@@ -159,10 +241,10 @@ export default function TeacherPayments() {
     <div className="page-container">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Öğretmen Ödemeleri</h1>
-          <p className="page-subtitle">Öğretmen ders saatleri ve ödeme takibi</p>
+          <h1 className="page-title">💸 Gider Takibi</h1>
+          <p className="page-subtitle">Öğretmen ödemeleri ve genel giderler</p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
           <input
             type="month"
             className="form-input"
@@ -170,61 +252,74 @@ export default function TeacherPayments() {
             onChange={(e) => setSelectedMonth(e.target.value)}
             style={{ width: '200px' }}
           />
+          <input
+            type="text"
+            className="form-input"
+            placeholder="🔍 Öğretmen, kategori, fatura no ile ara..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '250px' }}
+          />
           <button onClick={() => navigate('/teacher-payments/cancelled')} className="btn btn-secondary">
             ❌ İptal Edilen Ödemeler
           </button>
           <button onClick={() => setShowCalculateModal(true)} className="btn btn-primary">
             ➕ Ödeme Hesapla
           </button>
+          <button onClick={() => setShowExpenseModal(true)} className="btn btn-success">
+            ➕ Genel Gider Ekle
+          </button>
         </div>
       </div>
 
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Öğretmen</th>
-              <th>Ay</th>
-              <th>Toplam Saat</th>
-              <th>Saat Ücreti</th>
-              <th>Deneme Dersi</th>
-              <th>Toplam Tutar</th>
-              <th>Ödenen</th>
-              <th>Kalan</th>
-              <th>Durum</th>
-              <th>İşlemler</th>
-            </tr>
-          </thead>
-          <tbody>
-            {teacherPayments.map((tp) => {
-              // Calculate trial lessons fee from total_amount - (total_hours × hourly_rate)
-              const normalLessonsFee = parseFloat(tp.total_hours || 0) * parseFloat(tp.hourly_rate || 0);
-              const trialLessonsFee = parseFloat(tp.total_amount || 0) - normalLessonsFee;
-              
-              return (
-              <tr key={tp.id}>
-                <td className="font-bold">{tp.first_name} {tp.last_name}</td>
-                <td>{tp.month_year}</td>
-                <td>{parseFloat(tp.total_hours).toFixed(2)} saat</td>
-                <td>{formatCurrencyWithSymbol(tp.hourly_rate || 0)}</td>
-                <td>{formatCurrencyWithSymbol(trialLessonsFee)}</td>
-                <td>{formatCurrencyWithSymbol(tp.total_amount)}</td>
-                <td className="text-success">{formatCurrencyWithSymbol(tp.paid_amount || 0)}</td>
-                <td className={parseFloat(tp.remaining_amount) > 0 ? 'text-error' : 'text-success'}>
-                  {formatCurrencyWithSymbol(tp.remaining_amount || 0)}
-                </td>
-                <td>
-                  <span className={`badge badge-${
-                    tp.status === 'completed' ? 'success' : 
-                    tp.status === 'partial' ? 'warning' : 'info'
-                  }`}>
-                    {tp.status === 'completed' ? 'Tamamlandı' : 
-                     tp.status === 'partial' ? 'Kısmi' : 'Bekliyor'}
-                  </span>
-                </td>
-                <td>
-                  <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                    {tp.status !== 'completed' && (
+      {/* Öğretmen Ödemeleri Tablosu */}
+      <div className="section">
+        <h2>👨‍🏫 Öğretmen Ödemeleri</h2>
+        <div className="scrollable-table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Öğretmen</th>
+                <th>Ay</th>
+                <th>Toplam Saat</th>
+                <th>Saat Ücreti</th>
+                <th>Deneme Dersi</th>
+                <th>Toplam Tutar</th>
+                <th>Ödenen</th>
+                <th>Kalan</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTeacherPayments.filter(tp => tp.payment_type === 'teacher_salary' || !tp.payment_type).map((tp) => {
+                // Calculate trial lessons fee from total_amount - (total_hours × hourly_rate)
+                const normalLessonsFee = parseFloat(tp.total_hours || 0) * parseFloat(tp.hourly_rate || 0);
+                const trialLessonsFee = parseFloat(tp.total_amount || 0) - normalLessonsFee;
+                
+                return (
+                <tr key={tp.id}>
+                  <td className="font-bold">{tp.first_name} {tp.last_name}</td>
+                  <td>{tp.month_year}</td>
+                  <td>{parseFloat(tp.total_hours).toFixed(2)} saat</td>
+                  <td>{formatCurrencyWithSymbol(tp.hourly_rate || 0)}</td>
+                  <td>{formatCurrencyWithSymbol(trialLessonsFee)}</td>
+                  <td>{formatCurrencyWithSymbol(tp.total_amount)}</td>
+                  <td className="text-success">{formatCurrencyWithSymbol(tp.paid_amount || 0)}</td>
+                  <td className={parseFloat(tp.remaining_amount) > 0 ? 'text-error' : 'text-success'}>
+                    {formatCurrencyWithSymbol(tp.remaining_amount || 0)}
+                  </td>
+                  <td>
+                    <span className={`badge badge-${
+                      tp.status === 'completed' ? 'success' : 
+                      tp.status === 'partial' ? 'warning' : 'info'
+                    }`}>
+                      {tp.status === 'completed' ? 'Tamamlandı' : 
+                       tp.status === 'partial' ? 'Kısmi' : 'Bekliyor'}
+                    </span>
+                  </td>
+                  <td>
+                    {parseFloat(tp.remaining_amount) > 0 && (
                       <button
                         onClick={() => openPaymentModal(tp)}
                         className="btn btn-sm btn-primary"
@@ -232,21 +327,77 @@ export default function TeacherPayments() {
                         Ödeme Yap
                       </button>
                     )}
-                    <button
-                      onClick={() => openCancelModal(tp)}
-                      className="btn btn-sm btn-secondary"
-                      style={{ backgroundColor: 'var(--error)', borderColor: 'var(--error)' }}
-                    >
-                      İptal Et
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  </td>
+                </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Genel Giderler Tablosu */}
+      <div className="section" style={{ marginTop: 'var(--space-8)' }}>
+        <h2>🏢 Genel Giderler</h2>
+        <div className="scrollable-table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Tarih</th>
+                <th>Kategori</th>
+                <th>Açıklama</th>
+                <th>Fatura No</th>
+                <th>Tedarikçi</th>
+                <th>Tutar</th>
+                <th>Ödenen</th>
+                <th>Kalan</th>
+                <th>Durum</th>
+                <th>İşlemler</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTeacherPayments.filter(tp => tp.payment_type === 'general_expense').map((expense) => (
+                <tr key={expense.id}>
+                  <td>{expense.month_year}</td>
+                  <td>
+                    <span className="category-badge">
+                      {getCategoryLabel(expense.expense_category)}
+                    </span>
+                  </td>
+                  <td>{expense.notes || '-'}</td>
+                  <td>{expense.invoice_number || '-'}</td>
+                  <td>{expense.vendor || '-'}</td>
+                  <td>{formatCurrencyWithSymbol(expense.total_amount)}</td>
+                  <td className="text-success">{formatCurrencyWithSymbol(expense.paid_amount || 0)}</td>
+                  <td className={parseFloat(expense.remaining_amount) > 0 ? 'text-error' : 'text-success'}>
+                    {formatCurrencyWithSymbol(expense.remaining_amount || 0)}
+                  </td>
+                  <td>
+                    <span className={`badge badge-${
+                      expense.status === 'completed' ? 'success' : 
+                      expense.status === 'partial' ? 'warning' : 'info'
+                    }`}>
+                      {expense.status === 'completed' ? 'Tamamlandı' : 
+                       expense.status === 'partial' ? 'Kısmi' : 'Bekliyor'}
+                    </span>
+                  </td>
+                  <td>
+                    {parseFloat(expense.remaining_amount) > 0 && (
+                      <button
+                        onClick={() => openPaymentModal(expense)}
+                        className="btn btn-sm btn-primary"
+                      >
+                        Ödeme Yap
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
 
       {/* Calculate Modal */}
       {showCalculateModal && (
@@ -365,47 +516,168 @@ export default function TeacherPayments() {
                   rows="2"
                 />
               </div>
+              <div className="modal-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <button 
+                  type="button" 
+                  onClick={() => openPartialCancelModal(selectedTeacherPayment)} 
+                  className="btn btn-sm"
+                  style={{ 
+                    backgroundColor: 'var(--error)', 
+                    borderColor: 'var(--error)',
+                    color: 'white'
+                  }}
+                >
+                  ❌ Kalan Tutarı İptal Et
+                </button>
+                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                  <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary">
+                    İptal
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Ödemeyi Kaydet
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Expense Modal */}
+      {showExpenseModal && (
+        <div className="modal-overlay" onClick={() => setShowExpenseModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2 className="modal-title">➕ Genel Gider Ekle</h2>
+            <form onSubmit={handleExpenseSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Tarih *</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={expenseForm.expense_date}
+                    onChange={(e) => setExpenseForm({...expenseForm, expense_date: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Kategori *</label>
+                  <select
+                    className="form-select"
+                    value={expenseForm.expense_category}
+                    onChange={(e) => setExpenseForm({...expenseForm, expense_category: e.target.value})}
+                    required
+                  >
+                    <option value="">Seçiniz</option>
+                    {EXPENSE_CATEGORIES.map(cat => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Tutar (₺) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-input"
+                    value={expenseForm.amount}
+                    onChange={(e) => setExpenseForm({...expenseForm, amount: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fatura No</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={expenseForm.invoice_number}
+                    onChange={(e) => setExpenseForm({...expenseForm, invoice_number: e.target.value})}
+                    placeholder="F-2025-12"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Tedarikçi/Firma</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={expenseForm.vendor}
+                  onChange={(e) => setExpenseForm({...expenseForm, vendor: e.target.value})}
+                  placeholder="Örn: Ev Sahibi, BEDAŞ"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Notlar</label>
+                <textarea
+                  className="form-textarea"
+                  value={expenseForm.notes}
+                  onChange={(e) => setExpenseForm({...expenseForm, notes: e.target.value})}
+                  rows="3"
+                  placeholder="Gider hakkında ek bilgiler..."
+                />
+              </div>
+
               <div className="modal-actions">
-                <button type="button" onClick={() => setShowPaymentModal(false)} className="btn btn-secondary">
+                <button type="button" onClick={() => setShowExpenseModal(false)} className="btn btn-secondary">
                   İptal
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Ödemeyi Kaydet
+                  Kaydet
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* Cancel Modal */}
-      {showCancelModal && selectedTeacherPayment && (
-        <div className="modal-overlay" onClick={() => setShowCancelModal(false)}>
+
+      {/* Partial Cancel Modal */}
+      {showPartialCancelModal && selectedTeacherPayment && (
+        <div className="modal-overlay" onClick={() => setShowPartialCancelModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Öğretmen Ödemesini İptal Et</h2>
+            <h2 className="modal-title">❌ Kalan Tutarı İptal Et</h2>
             <div className="mb-4" style={{ padding: 'var(--space-4)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-              <p><strong>Öğretmen:</strong> {selectedTeacherPayment.first_name} {selectedTeacherPayment.last_name}</p>
-              <p><strong>Ay:</strong> {selectedTeacherPayment.month_year}</p>
+              {selectedTeacherPayment.payment_type === 'teacher_salary' || !selectedTeacherPayment.payment_type ? (
+                <>
+                  <p><strong>Öğretmen:</strong> {selectedTeacherPayment.first_name} {selectedTeacherPayment.last_name}</p>
+                  <p><strong>Ay:</strong> {selectedTeacherPayment.month_year}</p>
+                </>
+              ) : (
+                <>
+                  <p><strong>Kategori:</strong> {getCategoryLabel(selectedTeacherPayment.expense_category)}</p>
+                  <p><strong>Tarih:</strong> {selectedTeacherPayment.month_year}</p>
+                  {selectedTeacherPayment.vendor && <p><strong>Tedarikçi:</strong> {selectedTeacherPayment.vendor}</p>}
+                </>
+              )}
               <p><strong>Toplam Tutar:</strong> {formatCurrencyWithSymbol(selectedTeacherPayment.total_amount)}</p>
-              <p><strong>Ödenen:</strong> {formatCurrencyWithSymbol(selectedTeacherPayment.paid_amount || 0)}</p>
+              <p><strong>Ödenen:</strong> <span className="text-success">{formatCurrencyWithSymbol(selectedTeacherPayment.paid_amount || 0)}</span></p>
+              <p className="text-error"><strong>İptal Edilecek Kalan:</strong> {formatCurrencyWithSymbol(selectedTeacherPayment.remaining_amount)}</p>
             </div>
-            <form onSubmit={handleCancelPayment}>
+            <div className="info-box" style={{ background: '#fef3c7', borderColor: '#f59e0b' }}>
+              <p>⚠️ Bu işlem sadece kalan tutarı iptal edecektir. Ödenen tutar değişmeyecektir.</p>
+            </div>
+            <form onSubmit={handlePartialCancelPayment}>
               <div className="form-group">
                 <label className="form-label">İptal Nedeni *</label>
                 <textarea
                   className="form-textarea"
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
+                  value={partialCancelReason}
+                  onChange={(e) => setPartialCancelReason(e.target.value)}
                   rows="4"
-                  placeholder="Lütfen ödemenin neden iptal edildiğini açıklayın..."
+                  placeholder="Lütfen kalan tutarın neden iptal edildiğini açıklayın..."
                   required
                 />
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={() => setShowCancelModal(false)} className="btn btn-secondary">
+                <button type="button" onClick={() => setShowPartialCancelModal(false)} className="btn btn-secondary">
                   Vazgeç
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ backgroundColor: 'var(--error)', borderColor: 'var(--error)' }}>
-                  İptal Et
+                <button type="submit" className="btn btn-warning">
+                  Kalan Tutarı İptal Et
                 </button>
               </div>
             </form>

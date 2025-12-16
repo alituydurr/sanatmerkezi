@@ -10,6 +10,27 @@ export default function CancelledTeacherPayments() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const EXPENSE_CATEGORIES = [
+    { value: 'kira', label: '🏢 Kira' },
+    { value: 'elektrik', label: '⚡ Elektrik' },
+    { value: 'su', label: '💧 Su' },
+    { value: 'internet', label: '🌐 İnternet' },
+    { value: 'telefon', label: '📱 Telefon' },
+    { value: 'malzeme', label: '🎨 Malzeme' },
+    { value: 'temizlik', label: '🧹 Temizlik' },
+    { value: 'bakim_onarim', label: '🔧 Bakım-Onarım' },
+    { value: 'kirtasiye', label: '📚 Kırtasiye' },
+    { value: 'ulasim', label: '🚗 Ulaşım' },
+    { value: 'yemek_ikram', label: '🍽️ Yemek-İkram' },
+    { value: 'reklam', label: '📢 Reklam-Pazarlama' },
+    { value: 'diger', label: '💼 Diğer' }
+  ];
+
+  const getCategoryLabel = (value) => {
+    const category = EXPENSE_CATEGORIES.find(cat => cat.value === value);
+    return category ? category.label : value;
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -27,13 +48,27 @@ export default function CancelledTeacherPayments() {
 
   const filteredPayments = cancelledPayments.filter(payment => {
     const searchLower = searchTerm.toLowerCase();
-    return (
-      payment.first_name?.toLowerCase().includes(searchLower) ||
-      payment.last_name?.toLowerCase().includes(searchLower) ||
-      payment.month_year?.toLowerCase().includes(searchLower) ||
-      payment.cancellation_reason?.toLowerCase().includes(searchLower) ||
-      payment.cancelled_by_username?.toLowerCase().includes(searchLower)
-    );
+    const isTeacherPayment = payment.payment_type === 'teacher_salary' || !payment.payment_type;
+    const isGeneralExpense = payment.payment_type === 'general_expense';
+    
+    if (isTeacherPayment) {
+      return (
+        payment.first_name?.toLowerCase().includes(searchLower) ||
+        payment.last_name?.toLowerCase().includes(searchLower) ||
+        payment.month_year?.toLowerCase().includes(searchLower) ||
+        payment.cancellation_reason?.toLowerCase().includes(searchLower) ||
+        payment.cancelled_by_username?.toLowerCase().includes(searchLower)
+      );
+    } else if (isGeneralExpense) {
+      return (
+        payment.expense_category?.toLowerCase().includes(searchLower) ||
+        payment.vendor?.toLowerCase().includes(searchLower) ||
+        payment.month_year?.toLowerCase().includes(searchLower) ||
+        payment.cancellation_reason?.toLowerCase().includes(searchLower) ||
+        payment.cancelled_by_username?.toLowerCase().includes(searchLower)
+      );
+    }
+    return false;
   });
 
   if (loading) {
@@ -48,15 +83,15 @@ export default function CancelledTeacherPayments() {
             ← Geri
           </button>
           <h1 className="page-title" style={{ marginTop: 'var(--space-4)' }}>
-            İptal Edilen Öğretmen Ödemeleri
+            İptal Edilen Ödemeler
           </h1>
-          <p className="page-subtitle">İptal edilen öğretmen ödemelerini görüntüleyin</p>
+          <p className="page-subtitle">İptal edilen öğretmen ödemeleri ve genel giderleri görüntüleyin</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
           <input
             type="text"
             className="form-input"
-            placeholder="🔍 Öğretmen, ay, iptal nedeni ile ara..."
+            placeholder="🔍 Öğretmen, kategori, ay, iptal nedeni ile ara..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '300px' }}
@@ -68,10 +103,9 @@ export default function CancelledTeacherPayments() {
         <table>
           <thead>
             <tr>
-              <th>Öğretmen</th>
+              <th>Tür</th>
+              <th>Öğretmen/Kategori</th>
               <th>Ay</th>
-              <th>Toplam Saat</th>
-              <th>Saat Ücreti</th>
               <th>Toplam Tutar</th>
               <th>Ödenen</th>
               <th>Kalan</th>
@@ -84,7 +118,7 @@ export default function CancelledTeacherPayments() {
             {filteredPayments.length === 0 ? (
               <tr>
                 <td colSpan="10" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
-                  İptal edilen öğretmen ödemesi bulunmamaktadır
+                  İptal edilen ödeme bulunmamaktadır
                 </td>
               </tr>
             ) : (
@@ -92,15 +126,22 @@ export default function CancelledTeacherPayments() {
                 const paidAmount = parseFloat(payment.paid_amount || 0);
                 const totalAmount = parseFloat(payment.total_amount);
                 const remainingAmount = parseFloat(payment.remaining_amount || 0);
+                const isTeacherPayment = payment.payment_type === 'teacher_salary' || !payment.payment_type;
 
                 return (
                   <tr key={payment.id}>
+                    <td>
+                      <span className={`badge badge-${isTeacherPayment ? 'info' : 'warning'}`}>
+                        {isTeacherPayment ? '👨‍🏫 Öğretmen' : '🏢 Genel Gider'}
+                      </span>
+                    </td>
                     <td className="font-bold">
-                      {payment.first_name} {payment.last_name}
+                      {isTeacherPayment 
+                        ? `${payment.first_name} ${payment.last_name}`
+                        : getCategoryLabel(payment.expense_category)
+                      }
                     </td>
                     <td>{payment.month_year}</td>
-                    <td>{parseFloat(payment.total_hours || 0).toFixed(2)} saat</td>
-                    <td>{formatCurrencyWithSymbol(payment.hourly_rate || 0)}</td>
                     <td>{formatCurrencyWithSymbol(totalAmount)}</td>
                     <td className="text-success">{formatCurrencyWithSymbol(paidAmount)}</td>
                     <td className={remainingAmount > 0 ? 'text-error' : 'text-success'}>

@@ -107,9 +107,11 @@ export const teacherPaymentsAPI = {
   getAll: (monthYear) => api.get('/teacher-payments', { params: { month_year: monthYear } }),
   calculateHours: (teacherId, monthYear) => api.get(`/teacher-payments/calculate/${teacherId}/${monthYear}`),
   create: (data) => api.post('/teacher-payments', data),
+  createGeneralExpense: (data) => api.post('/teacher-payments/general-expense', data),
   recordPayment: (data) => api.post('/teacher-payments/record', data),
   getRecords: (teacherId) => api.get(`/teacher-payments/records/${teacherId}`),
   cancel: (id, cancellation_reason) => api.post(`/teacher-payments/${id}/cancel`, { cancellation_reason }),
+  partialCancel: (id, cancellation_reason) => api.post(`/teacher-payments/${id}/partial-cancel`, { cancellation_reason }),
   getCancelled: () => api.get('/teacher-payments/cancelled')
 };
 

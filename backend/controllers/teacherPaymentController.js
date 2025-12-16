@@ -86,7 +86,7 @@ export const calculateTeacherHours = async (req, res, next) => {
   }
 };
 
-// Get all teacher payments (excluding cancelled)
+// Get all teacher payments and general expenses (excluding cancelled)
 export const getAllTeacherPayments = async (req, res, next) => {
   try {
     const { month_year } = req.query;
@@ -97,7 +97,7 @@ export const getAllTeacherPayments = async (req, res, next) => {
         t.last_name,
         COALESCE(SUM(tpr.amount), 0) as paid_amount_calculated
       FROM teacher_payments tp
-      INNER JOIN teachers t ON tp.teacher_id = t.id
+      LEFT JOIN teachers t ON tp.teacher_id = t.id
       LEFT JOIN teacher_payment_records tpr ON tp.id = tpr.teacher_payment_id
       WHERE tp.status != 'cancelled'
     `;
@@ -108,7 +108,7 @@ export const getAllTeacherPayments = async (req, res, next) => {
       params.push(month_year);
     }
 
-    query += ' GROUP BY tp.id, t.id ORDER BY tp.month_year DESC, t.last_name';
+    query += ' GROUP BY tp.id, t.id ORDER BY tp.payment_type, tp.month_year DESC, t.last_name';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -169,17 +169,31 @@ export const createTeacherPayment = async (req, res, next) => {
         `, [total_hours || 0, hourly_rate, totalAmount, notes, teacher_id, month_year]);
       } else {
         // Update existing active payment
+        // Calculate new remaining amount
+        const newRemainingAmount = totalAmount - parseFloat(existingPayment.paid_amount || 0);
+        
+        // Determine new status based on remaining amount
+        let newStatus;
+        if (newRemainingAmount <= 0) {
+          newStatus = 'completed';
+        } else if (parseFloat(existingPayment.paid_amount || 0) > 0) {
+          newStatus = 'partial';
+        } else {
+          newStatus = 'pending';
+        }
+        
         result = await pool.query(`
           UPDATE teacher_payments
           SET total_hours = $1,
               hourly_rate = $2,
               total_amount = $3,
-              remaining_amount = $3 - paid_amount,
-              notes = $4,
+              remaining_amount = $4,
+              status = $5,
+              notes = $6,
               updated_at = CURRENT_TIMESTAMP
-          WHERE teacher_id = $5 AND month_year = $6
+          WHERE teacher_id = $7 AND month_year = $8
           RETURNING *
-        `, [total_hours || 0, hourly_rate, totalAmount, notes, teacher_id, month_year]);
+        `, [total_hours || 0, hourly_rate, totalAmount, newRemainingAmount, newStatus, notes, teacher_id, month_year]);
       }
     } else {
       // Create new
@@ -199,14 +213,82 @@ export const createTeacherPayment = async (req, res, next) => {
   }
 };
 
+// Create general expense
+export const createGeneralExpense = async (req, res, next) => {
+  try {
+    const {
+      expense_date,
+      expense_category,
+      description,
+      amount,
+      invoice_number,
+      vendor,
+      notes,
+    } = req.body;
+
+    // Validation
+    if (!expense_date || !expense_category || !amount) {
+      return res.status(400).json({
+        error: 'Tarih, kategori ve tutar zorunludur',
+      });
+    }
+
+    // Ay-yıl formatı (YYYY-MM)
+    const monthYear = expense_date.substring(0, 7);
+
+    // Her zaman pending olarak başla
+    const paidAmount = 0;
+    const remainingAmount = parseFloat(amount);
+    const status = 'pending';
+
+    const result = await pool.query(
+      `
+      INSERT INTO teacher_payments (
+        payment_type,
+        month_year,
+        expense_category,
+        invoice_number,
+        vendor,
+        total_amount,
+        paid_amount,
+        remaining_amount,
+        status,
+        notes,
+        created_by
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *
+    `,
+      [
+        'general_expense',
+        monthYear,
+        expense_category,
+        invoice_number,
+        vendor,
+        amount,
+        paidAmount,
+        remainingAmount,
+        status,
+        notes,
+        req.user?.id || null,
+      ]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 // Record teacher payment
 export const recordTeacherPayment = async (req, res, next) => {
   try {
     const { teacher_payment_id, teacher_id, amount, payment_date, payment_method, notes } = req.body;
 
-    if (!teacher_payment_id || !teacher_id || !amount) {
+    if (!teacher_payment_id || !amount) {
       return res.status(400).json({ 
-        error: 'Teacher payment ID, teacher ID, and amount are required' 
+        error: 'Teacher payment ID and amount are required' 
       });
     }
 
@@ -222,6 +304,9 @@ export const recordTeacherPayment = async (req, res, next) => {
 
     const teacherPayment = tpResult.rows[0];
 
+    // For general expenses, teacher_id might be null, so get it from the payment record
+    const actualTeacherId = teacher_id || teacherPayment.teacher_id;
+
     // Record payment
     const paymentResult = await pool.query(`
       INSERT INTO teacher_payment_records (
@@ -229,7 +314,7 @@ export const recordTeacherPayment = async (req, res, next) => {
       )
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [teacher_payment_id, teacher_id, amount, payment_date || new Date(), payment_method, notes]);
+    `, [teacher_payment_id, actualTeacherId, amount, payment_date || new Date(), payment_method, notes]);
 
     // Update teacher_payments
     const newPaidAmount = parseFloat(teacherPayment.paid_amount || 0) + parseFloat(amount);
@@ -307,13 +392,65 @@ export const cancelTeacherPayment = async (req, res, next) => {
   }
 };
 
-// Get cancelled teacher payments
+// Partial cancel teacher payment (cancel only remaining amount)
+export const partialCancelTeacherPayment = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { cancellation_reason } = req.body;
+
+    if (!cancellation_reason || cancellation_reason.trim() === '') {
+      return res.status(400).json({ error: 'İptal nedeni belirtilmelidir' });
+    }
+
+    // Get current payment
+    const currentPayment = await pool.query(
+      'SELECT * FROM teacher_payments WHERE id = $1',
+      [id]
+    );
+
+    if (currentPayment.rows.length === 0) {
+      return res.status(404).json({ error: 'Ödeme bulunamadı' });
+    }
+
+    const payment = currentPayment.rows[0];
+    const remainingAmount = parseFloat(payment.remaining_amount || 0);
+
+    if (remainingAmount <= 0) {
+      return res.status(400).json({ error: 'İptal edilecek kalan tutar yok' });
+    }
+
+    // Update payment - cancel only remaining amount
+    const result = await pool.query(`
+      UPDATE teacher_payments
+      SET remaining_amount = 0,
+          status = 'cancelled',
+          cancellation_reason = $1,
+          cancelled_at = CURRENT_TIMESTAMP,
+          cancelled_by = $2,
+          updated_at = CURRENT_TIMESTAMP,
+          notes = CONCAT(COALESCE(notes, ''), ' | Kalan tutar iptal edildi: ₺', $3::text)
+      WHERE id = $4
+      RETURNING *
+    `, [cancellation_reason, req.user?.id || null, remainingAmount.toFixed(2), id]);
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// Get cancelled teacher payments and general expenses
 export const getCancelledTeacherPayments = async (req, res, next) => {
   try {
     const result = await pool.query(`
       SELECT 
         tp.id,
         tp.teacher_id,
+        tp.payment_type,
+        tp.expense_category,
+        tp.vendor,
+        tp.invoice_number,
         t.first_name,
         t.last_name,
         tp.month_year,
@@ -325,10 +462,11 @@ export const getCancelledTeacherPayments = async (req, res, next) => {
         tp.status,
         tp.cancellation_reason,
         tp.cancelled_at,
-        CAST(tp.cancelled_by AS TEXT) as cancelled_by_username,
+        COALESCE(u.email, CAST(tp.cancelled_by AS TEXT)) as cancelled_by_username,
         tp.created_at
       FROM teacher_payments tp
-      INNER JOIN teachers t ON tp.teacher_id = t.id
+      LEFT JOIN teachers t ON tp.teacher_id = t.id
+      LEFT JOIN users u ON tp.cancelled_by = u.id
       WHERE tp.status = 'cancelled'
       ORDER BY tp.cancelled_at DESC
     `);

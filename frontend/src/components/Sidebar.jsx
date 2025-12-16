@@ -13,7 +13,7 @@ export default function Sidebar() {
     { path: '/schedule', label: 'Ders Program Takvimi', icon: '📅', roles: ['admin', 'teacher'] },
     { path: '/events', label: 'Etkinlikler', icon: '🎭', roles: ['admin', 'teacher'] },
     { path: '/payments', label: 'Ödeme Takibi', icon: '💰', roles: ['admin'] },
-    { path: '/teacher-payments', label: 'Öğretmen Ödemeleri', icon: '💵', roles: ['admin'] },
+    { path: '/teacher-payments', label: 'Gider Takibi', icon: '💸', roles: ['admin'] },
     { path: '/financial-reports', label: 'Finansal Raporlar', icon: '📊', roles: ['admin'] }
   ];
 

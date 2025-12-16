@@ -11,6 +11,7 @@ export default function Events() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -93,12 +94,32 @@ export default function Events() {
 
   const filteredEvents = events.filter(event => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       event.name?.toLowerCase().includes(searchLower) ||
       event.event_type?.toLowerCase().includes(searchLower) ||
       event.teacher_first_name?.toLowerCase().includes(searchLower) ||
       event.teacher_last_name?.toLowerCase().includes(searchLower)
     );
+
+    // Month filter
+    if (selectedMonth) {
+      const [year, month] = selectedMonth.split('-');
+      const eventStartDate = new Date(event.start_date);
+      const eventEndDate = new Date(event.end_date);
+      const filterMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const filterMonthEnd = new Date(parseInt(year), parseInt(month), 0);
+      
+      // Event is in the selected month if it starts or ends in that month, or spans across it
+      const matchesMonth = (
+        (eventStartDate >= filterMonth && eventStartDate <= filterMonthEnd) ||
+        (eventEndDate >= filterMonth && eventEndDate <= filterMonthEnd) ||
+        (eventStartDate <= filterMonth && eventEndDate >= filterMonthEnd)
+      );
+      
+      return matchesSearch && matchesMonth;
+    }
+
+    return matchesSearch;
   });
 
   if (loading) {
@@ -112,14 +133,21 @@ export default function Events() {
           <h1 className="page-title">Etkinlik Yönetimi</h1>
           <p className="page-subtitle">Tüm etkinlikleri görüntüleyin ve yönetin</p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
+          <input
+            type="month"
+            className="form-input"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            style={{ width: '200px' }}
+          />
           <input
             type="text"
             className="form-input"
             placeholder="🔍 Etkinlik adı, tür, öğretmen ile ara..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '350px' }}
+            style={{ width: '300px' }}
           />
           {isAdmin() && (
             <button onClick={() => setShowModal(true)} className="btn btn-primary">

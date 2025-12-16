@@ -30,13 +30,24 @@ export const getFinancialSummary = async (req, res, next) => {
         AND DATE(ee.payment_date) BETWEEN $1 AND $2
     `, [startDate, endDate]);
 
-    // Get teacher payments (expense) for the month - exclude cancelled
+    // Get teacher payments (expense) for the month - exclude cancelled, only teacher_salary type
     const teacherPayments = await pool.query(`
       SELECT COALESCE(SUM(tpr.amount), 0) as total
       FROM teacher_payment_records tpr
       INNER JOIN teacher_payments tp ON tpr.teacher_payment_id = tp.id
       WHERE DATE(tpr.payment_date) BETWEEN $1 AND $2
         AND tp.status != 'cancelled'
+        AND (tp.payment_type = 'teacher_salary' OR tp.payment_type IS NULL)
+    `, [startDate, endDate]);
+
+    // Get general expenses for the month - exclude cancelled
+    const generalExpenses = await pool.query(`
+      SELECT COALESCE(SUM(tpr.amount), 0) as total
+      FROM teacher_payment_records tpr
+      INNER JOIN teacher_payments tp ON tpr.teacher_payment_id = tp.id
+      WHERE DATE(tpr.payment_date) BETWEEN $1 AND $2
+        AND tp.status != 'cancelled'
+        AND tp.payment_type = 'general_expense'
     `, [startDate, endDate]);
 
     // Get planned income (upcoming student payments)
@@ -69,12 +80,22 @@ export const getFinancialSummary = async (req, res, next) => {
       FROM teacher_payments tp
       WHERE tp.month_year = $1
         AND tp.status = 'pending'
+        AND (tp.payment_type = 'teacher_salary' OR tp.payment_type IS NULL)
+    `, [month_year]);
+
+    // Get planned general expenses for the month
+    const plannedGeneralExpense = await pool.query(`
+      SELECT COALESCE(SUM(tp.total_amount - tp.paid_amount), 0) as total
+      FROM teacher_payments tp
+      WHERE tp.month_year = $1
+        AND tp.status = 'pending'
+        AND tp.payment_type = 'general_expense'
     `, [month_year]);
 
     const actualIncome = parseFloat(studentPayments.rows[0].total) + parseFloat(eventPayments.rows[0].total);
-    const actualExpense = parseFloat(teacherPayments.rows[0].total);
+    const actualExpense = parseFloat(teacherPayments.rows[0].total) + parseFloat(generalExpenses.rows[0].total);
     const plannedIncome = parseFloat(plannedStudentIncome.rows[0].total) + parseFloat(plannedEventIncome.rows[0].total);
-    const plannedExpense = parseFloat(plannedTeacherExpense.rows[0].total);
+    const plannedExpense = parseFloat(plannedTeacherExpense.rows[0].total) + parseFloat(plannedGeneralExpense.rows[0].total);
 
     res.json({
       month_year,
@@ -137,7 +158,7 @@ export const getFinancialReport = async (req, res, next) => {
       ORDER BY e.start_date DESC
     `, [startDate, endDate]);
 
-    // Teacher payments breakdown - exclude cancelled
+    // Teacher payments breakdown - exclude cancelled, only teacher_salary
     const teacherPaymentsDetail = await pool.query(`
       SELECT 
         t.first_name || ' ' || t.last_name as teacher_name,
@@ -151,25 +172,46 @@ export const getFinancialReport = async (req, res, next) => {
       INNER JOIN teachers t ON tp.teacher_id = t.id
       WHERE DATE(tpr.payment_date) BETWEEN $1 AND $2
         AND tp.status != 'cancelled'
+        AND (tp.payment_type = 'teacher_salary' OR tp.payment_type IS NULL)
       ORDER BY tpr.payment_date DESC
     `, [startDate, endDate]);
+
+    // General expenses breakdown - exclude cancelled
+    const generalExpensesDetail = await pool.query(`
+      SELECT 
+        tp.expense_category,
+        tp.vendor,
+        tp.invoice_number,
+        tp.total_amount,
+        tpr.amount as paid_amount,
+        tpr.payment_date,
+        tp.notes
+      FROM teacher_payment_records tpr
+      INNER JOIN teacher_payments tp ON tpr.teacher_payment_id = tp.id
+      WHERE DATE(tpr.payment_date) BETWEEN $1 AND $2
+        AND tp.status != 'cancelled'
+        AND tp.payment_type = 'general_expense'
+      ORDER BY tpr.payment_date DESC
+    `, [startDate, endDate]);
+
+    const totalTeacherExpenses = teacherPaymentsDetail.rows.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+    const totalGeneralExpenses = generalExpensesDetail.rows.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+    const totalIncome = studentPaymentsDetail.rows.reduce((sum, p) => sum + parseFloat(p.amount), 0) +
+                        eventPaymentsDetail.rows.reduce((sum, e) => sum + parseFloat(e.total_paid), 0);
 
     res.json({
       month_year,
       income: {
         student_payments: studentPaymentsDetail.rows,
         event_payments: eventPaymentsDetail.rows,
-        total: studentPaymentsDetail.rows.reduce((sum, p) => sum + parseFloat(p.amount), 0) +
-               eventPaymentsDetail.rows.reduce((sum, e) => sum + parseFloat(e.total_paid), 0)
+        total: totalIncome
       },
       expenses: {
         teacher_payments: teacherPaymentsDetail.rows,
-        total: teacherPaymentsDetail.rows.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0)
+        general_expenses: generalExpensesDetail.rows,
+        total: totalTeacherExpenses + totalGeneralExpenses
       },
-      net_profit: (
-        studentPaymentsDetail.rows.reduce((sum, p) => sum + parseFloat(p.amount), 0) +
-        eventPaymentsDetail.rows.reduce((sum, e) => sum + parseFloat(e.total_paid), 0)
-      ) - teacherPaymentsDetail.rows.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0)
+      net_profit: totalIncome - (totalTeacherExpenses + totalGeneralExpenses)
     });
   } catch (error) {
     next(error);

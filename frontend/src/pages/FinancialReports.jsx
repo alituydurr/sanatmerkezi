@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { financialAPI, paymentsAPI, teacherPaymentsAPI, eventsAPI } from '../services/api';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
+import * as XLSX from 'xlsx';
 import '../pages/Students.css';
 
 export default function FinancialReports() {
@@ -14,6 +15,27 @@ export default function FinancialReports() {
   const [cancelledEvents, setCancelledEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('summary'); // 'summary' or 'report'
+
+  const EXPENSE_CATEGORIES = [
+    { value: 'kira', label: '🏢 Kira' },
+    { value: 'elektrik', label: '⚡ Elektrik' },
+    { value: 'su', label: '💧 Su' },
+    { value: 'internet', label: '🌐 İnternet' },
+    { value: 'telefon', label: '📱 Telefon' },
+    { value: 'malzeme', label: '🎨 Malzeme' },
+    { value: 'temizlik', label: '🧹 Temizlik' },
+    { value: 'bakim_onarim', label: '🔧 Bakım-Onarım' },
+    { value: 'kirtasiye', label: '📚 Kırtasiye' },
+    { value: 'ulasim', label: '🚗 Ulaşım' },
+    { value: 'yemek_ikram', label: '🍽️ Yemek-İkram' },
+    { value: 'reklam', label: '📢 Reklam-Pazarlama' },
+    { value: 'diger', label: '💼 Diğer' }
+  ];
+
+  const getCategoryLabel = (value) => {
+    const category = EXPENSE_CATEGORIES.find(cat => cat.value === value);
+    return category ? category.label : value;
+  };
 
   useEffect(() => {
     loadData();
@@ -67,6 +89,166 @@ export default function FinancialReports() {
     window.print();
   };
 
+  const handleDownloadPDF = () => {
+    // Trigger print dialog which allows saving as PDF
+    window.print();
+  };
+
+  const handleDownloadExcel = () => {
+    if (!report) return;
+
+    // Prepare workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Create summary sheet
+    const summaryData = [
+      ['SANAT MERKEZİ FİNANSAL RAPOR'],
+      ['Dönem:', new Date(selectedMonth + '-01').toLocaleDateString('tr-TR', { year: 'numeric', month: 'long' })],
+      [],
+      ['FİNANSAL ÖZET'],
+      ['Gerçekleşen Gelir:', summary?.actual_income || 0],
+      ['Gerçekleşen Gider:', summary?.actual_expense || 0],
+      ['Planlanan Gelir:', summary?.planned_income || 0],
+      ['Planlanan Gider:', summary?.planned_expense || 0],
+      ['Net Kar:', summary?.net_profit || 0],
+      ['Tahmini Kar:', summary?.projected_profit || 0],
+    ];
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summarySheet, 'Özet');
+
+    // Create income sheet
+    const incomeData = [
+      ['GELİRLER'],
+      [],
+      ['ÖĞRENCİ ÖDEMELERİ'],
+      ['Öğrenci', 'Ders', 'Tarih', 'Ödeme Yöntemi', 'Tutar'],
+      ...report.income.student_payments.map(p => [
+        p.student_name,
+        p.course_name || '-',
+        new Date(p.payment_date).toLocaleDateString('tr-TR'),
+        p.payment_method === 'cash' ? 'Nakit' : p.payment_method === 'card' ? 'Kart' : 'Havale',
+        parseFloat(p.amount)
+      ]),
+      [],
+      ['ETKİNLİK GELİRLERİ'],
+      ['Etkinlik', 'Tür', 'Toplam Ücret', 'Ödenen'],
+      ...report.income.event_payments.map(e => [
+        e.event_name,
+        e.event_type,
+        parseFloat(e.event_price),
+        parseFloat(e.total_paid)
+      ]),
+      [],
+      ['TOPLAM GELİR:', '', '', '', report.income.total]
+    ];
+    const incomeSheet = XLSX.utils.aoa_to_sheet(incomeData);
+    XLSX.utils.book_append_sheet(wb, incomeSheet, 'Gelirler');
+
+    // Create expense sheet
+    const expenseData = [
+      ['GİDERLER'],
+      [],
+      ['ÖĞRETMEN ÖDEMELERİ'],
+      ['Öğretmen', 'Toplam Saat', 'Saat Ücreti', 'Deneme Dersi', 'Toplam Tutar', 'Ödenen', 'Tarih'],
+      ...report.expenses.teacher_payments.map(p => {
+        const normalFee = parseFloat(p.total_hours || 0) * parseFloat(p.hourly_rate || 0);
+        const trialFee = parseFloat(p.total_amount || 0) - normalFee;
+        return [
+          p.teacher_name,
+          parseFloat(p.total_hours || 0),
+          parseFloat(p.hourly_rate || 0),
+          trialFee,
+          parseFloat(p.total_amount),
+          parseFloat(p.paid_amount),
+          new Date(p.payment_date).toLocaleDateString('tr-TR')
+        ];
+      }),
+      [],
+      ['GENEL GİDERLER'],
+      ['Kategori', 'Tedarikçi', 'Fatura No', 'Toplam Tutar', 'Ödenen', 'Tarih', 'Notlar'],
+      ...(report.expenses.general_expenses || []).map(e => [
+        getCategoryLabel(e.expense_category),
+        e.vendor || '-',
+        e.invoice_number || '-',
+        parseFloat(e.total_amount),
+        parseFloat(e.paid_amount),
+        new Date(e.payment_date).toLocaleDateString('tr-TR'),
+        e.notes || '-'
+      ]),
+      [],
+      ['TOPLAM GİDER:', '', '', '', '', report.expenses.total]
+    ];
+    const expenseSheet = XLSX.utils.aoa_to_sheet(expenseData);
+    XLSX.utils.book_append_sheet(wb, expenseSheet, 'Giderler');
+
+    // Create cancellations sheet
+    const cancellationData = [
+      ['İPTAL EDİLEN ÖDEMELER'],
+      [],
+      ['ÖĞRENCİ ÖDEMELERİ'],
+      ['Öğrenci', 'Ders', 'Toplam Tutar', 'İptal Edilen', 'İptal Tarihi', 'Neden'],
+      ...cancelledPayments.map(p => {
+        const cancelled = parseFloat(p.total_amount) - parseFloat(p.paid_amount || 0);
+        return [
+          `${p.student_first_name} ${p.student_last_name}`,
+          p.course_name || '-',
+          parseFloat(p.total_amount),
+          cancelled,
+          new Date(p.cancelled_at).toLocaleDateString('tr-TR'),
+          p.cancellation_reason
+        ];
+      }),
+      [],
+      ['ÖĞRETMEN ÖDEMELERİ'],
+      ['Öğretmen/Kategori', 'Ay', 'Toplam Tutar', 'İptal Edilen', 'İptal Tarihi', 'Neden'],
+      ...cancelledTeacherPayments.filter(p => p.payment_type === 'teacher_salary' || !p.payment_type).map(p => {
+        const cancelled = parseFloat(p.total_amount) - parseFloat(p.paid_amount || 0);
+        return [
+          `${p.first_name} ${p.last_name}`,
+          p.month_year,
+          parseFloat(p.total_amount),
+          cancelled,
+          new Date(p.cancelled_at).toLocaleDateString('tr-TR'),
+          p.cancellation_reason
+        ];
+      }),
+      [],
+      ['GENEL GİDERLER'],
+      ['Kategori', 'Ay', 'Toplam Tutar', 'İptal Edilen', 'İptal Tarihi', 'Neden'],
+      ...cancelledTeacherPayments.filter(p => p.payment_type === 'general_expense').map(p => {
+        const cancelled = parseFloat(p.total_amount) - parseFloat(p.paid_amount || 0);
+        return [
+          getCategoryLabel(p.expense_category),
+          p.month_year,
+          parseFloat(p.total_amount),
+          cancelled,
+          new Date(p.cancelled_at).toLocaleDateString('tr-TR'),
+          p.cancellation_reason
+        ];
+      }),
+      [],
+      ['ETKİNLİKLER'],
+      ['Etkinlik', 'Tür', 'Toplam Tutar', 'İptal Edilen', 'İptal Tarihi', 'Neden'],
+      ...cancelledEvents.map(e => {
+        const cancelled = parseFloat(e.total_amount) - parseFloat(e.paid_amount || 0);
+        return [
+          e.item_name,
+          e.event_type,
+          parseFloat(e.total_amount),
+          cancelled,
+          new Date(e.cancelled_at).toLocaleDateString('tr-TR'),
+          e.cancellation_reason
+        ];
+      })
+    ];
+    const cancellationSheet = XLSX.utils.aoa_to_sheet(cancellationData);
+    XLSX.utils.book_append_sheet(wb, cancellationSheet, 'İptaller');
+
+    // Download
+    const fileName = `Finansal_Rapor_${selectedMonth}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   if (loading) {
     return <div className="loading-container">Yükleniyor...</div>;
   }
@@ -87,9 +269,14 @@ export default function FinancialReports() {
             style={{ width: '200px' }}
           />
           {activeTab === 'report' && (
-            <button onClick={handlePrintReport} className="btn btn-secondary">
-              🖨️ Yazdır / PDF
-            </button>
+            <>
+              <button onClick={handleDownloadPDF} className="btn btn-secondary">
+                📄 PDF İndir
+              </button>
+              <button onClick={handleDownloadExcel} className="btn btn-success">
+                📊 Excel İndir
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -362,6 +549,41 @@ export default function FinancialReports() {
               <p>Bu ay öğretmen ödemesi yapılmamış.</p>
             )}
 
+            {/* General Expenses */}
+            {report.expenses.general_expenses && report.expenses.general_expenses.length > 0 && (
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <h4>Genel Giderler</h4>
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Kategori</th>
+                        <th>Tedarikçi</th>
+                        <th>Fatura No</th>
+                        <th>Toplam Tutar</th>
+                        <th>Ödenen</th>
+                        <th>Tarih</th>
+                        <th>Notlar</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.expenses.general_expenses.map((expense, idx) => (
+                        <tr key={idx}>
+                          <td>{getCategoryLabel(expense.expense_category)}</td>
+                          <td>{expense.vendor || '-'}</td>
+                          <td>{expense.invoice_number || '-'}</td>
+                          <td>{formatCurrencyWithSymbol(expense.total_amount)}</td>
+                          <td className="text-error">{formatCurrencyWithSymbol(expense.paid_amount)}</td>
+                          <td>{new Date(expense.payment_date).toLocaleDateString('tr-TR')}</td>
+                          <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{expense.notes || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <div style={{ 
               padding: 'var(--space-3)', 
               background: '#fee2e2', 
@@ -423,7 +645,7 @@ export default function FinancialReports() {
               )}
 
               {/* Cancelled Teacher Payments */}
-              {cancelledTeacherPayments.length > 0 && (
+              {cancelledTeacherPayments.filter(p => p.payment_type === 'teacher_salary' || !p.payment_type).length > 0 && (
                 <div style={{ marginBottom: 'var(--space-4)' }}>
                   <h4>İptal Edilen Öğretmen Ödemeleri</h4>
                   <div className="table-container">
@@ -439,19 +661,59 @@ export default function FinancialReports() {
                         </tr>
                       </thead>
                       <tbody>
-                        {cancelledTeacherPayments.map((payment, idx) => {
-                          const cancelledAmount = parseFloat(payment.total_amount) - parseFloat(payment.paid_amount || 0);
-                          return (
-                            <tr key={idx}>
-                              <td>{payment.first_name} {payment.last_name}</td>
-                              <td>{payment.month_year}</td>
-                              <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
-                              <td className="text-error">{formatCurrencyWithSymbol(cancelledAmount)}</td>
-                              <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
-                              <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
-                            </tr>
-                          );
-                        })}
+                        {cancelledTeacherPayments
+                          .filter(p => p.payment_type === 'teacher_salary' || !p.payment_type)
+                          .map((payment, idx) => {
+                            const cancelledAmount = parseFloat(payment.total_amount) - parseFloat(payment.paid_amount || 0);
+                            return (
+                              <tr key={idx}>
+                                <td>{payment.first_name} {payment.last_name}</td>
+                                <td>{payment.month_year}</td>
+                                <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
+                                <td className="text-error">{formatCurrencyWithSymbol(cancelledAmount)}</td>
+                                <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                                <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Cancelled General Expenses */}
+              {cancelledTeacherPayments.filter(p => p.payment_type === 'general_expense').length > 0 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <h4>İptal Edilen Genel Giderler</h4>
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Kategori</th>
+                          <th>Ay</th>
+                          <th>Toplam Tutar</th>
+                          <th>İptal Edilen Tutar</th>
+                          <th>İptal Tarihi</th>
+                          <th>İptal Nedeni</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cancelledTeacherPayments
+                          .filter(p => p.payment_type === 'general_expense')
+                          .map((payment, idx) => {
+                            const cancelledAmount = parseFloat(payment.total_amount) - parseFloat(payment.paid_amount || 0);
+                            return (
+                              <tr key={idx}>
+                                <td>{getCategoryLabel(payment.expense_category)}</td>
+                                <td>{payment.month_year}</td>
+                                <td>{formatCurrencyWithSymbol(payment.total_amount)}</td>
+                                <td className="text-error">{formatCurrencyWithSymbol(cancelledAmount)}</td>
+                                <td>{new Date(payment.cancelled_at).toLocaleDateString('tr-TR')}</td>
+                                <td style={{ maxWidth: '200px', fontSize: '0.85em' }}>{payment.cancellation_reason}</td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>

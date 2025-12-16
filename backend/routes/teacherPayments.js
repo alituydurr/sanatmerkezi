@@ -4,9 +4,11 @@ import {
   calculateTeacherHours,
   getAllTeacherPayments,
   createTeacherPayment,
+  createGeneralExpense,
   recordTeacherPayment,
   getTeacherPaymentRecords,
   cancelTeacherPayment,
+  partialCancelTeacherPayment,
   getCancelledTeacherPayments
 } from '../controllers/teacherPaymentController.js';
 
@@ -28,11 +30,17 @@ router.get('/cancelled', getCancelledTeacherPayments);
 // Create or update teacher payment
 router.post('/', createTeacherPayment);
 
+// Create general expense
+router.post('/general-expense', createGeneralExpense);
+
 // Record a teacher payment
 router.post('/record', recordTeacherPayment);
 
-// Cancel a teacher payment
+// Cancel a teacher payment (full cancellation)
 router.post('/:id/cancel', cancelTeacherPayment);
+
+// Partial cancel (cancel remaining amount only)
+router.post('/:id/partial-cancel', partialCancelTeacherPayment);
 
 // Get payment records for a teacher
 router.get('/records/:teacherId', getTeacherPaymentRecords);
