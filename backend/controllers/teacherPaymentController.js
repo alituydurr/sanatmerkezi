@@ -40,36 +40,34 @@ export const calculateTeacherHours = async (req, res, next) => {
         AND a.id IS NOT NULL
     `, [teacherId, startDate, endDate]);
 
-    // Calculate total fee from TRIAL LESSONS/APPOINTMENTS (teacher_fee > 0) where attendance is 'present'
-    const trialLessonsResult = await pool.query(`
+    // Calculate total fee from EVENTS/APPOINTMENTS (teacher_fee > 0)
+    // Note: We don't require attendance for these because they might be events/workshops
+    // that don't have individual student attendance tracking
+    const eventLessonsResult = await pool.query(`
       SELECT 
-        COUNT(DISTINCT cs.id) as trial_count,
-        SUM(cs.teacher_fee) as trial_total_fee,
+        COUNT(DISTINCT cs.id) as event_count,
+        SUM(cs.teacher_fee) as event_total_fee,
         json_agg(
           json_build_object(
             'date', cs.specific_date::text,
             'fee', cs.teacher_fee,
             'description', cs.room
           ) ORDER BY cs.specific_date
-        ) as trial_lessons
+        ) as event_lessons
       FROM course_schedules cs
-      LEFT JOIN attendance a ON cs.id = a.schedule_id 
-        AND a.attendance_date = cs.specific_date::date
-        AND a.status = 'present'
       WHERE cs.teacher_id = $1
         AND cs.specific_date::date >= $2::date
         AND cs.specific_date::date <= $3::date
         AND cs.teacher_fee > 0
-        AND a.id IS NOT NULL
     `, [teacherId, startDate, endDate]);
 
     const normalData = normalLessonsResult.rows[0];
-    const trialData = trialLessonsResult.rows[0];
+    const eventData = eventLessonsResult.rows[0];
     
     const totalHours = parseFloat(normalData.total_hours || 0);
     const totalClasses = parseInt(normalData.total_classes || 0);
-    const trialCount = parseInt(trialData.trial_count || 0);
-    const trialTotalFee = parseFloat(trialData.trial_total_fee || 0);
+    const eventCount = parseInt(eventData.event_count || 0);
+    const eventTotalFee = parseFloat(eventData.event_total_fee || 0);
 
     res.json({
       teacher_id: teacherId,
@@ -77,9 +75,9 @@ export const calculateTeacherHours = async (req, res, next) => {
       month_year: monthYear,
       total_hours: totalHours.toFixed(2),
       total_classes: totalClasses,
-      trial_lessons_count: trialCount,
-      trial_lessons_fee: trialTotalFee.toFixed(2),
-      trial_lessons: trialData.trial_lessons || []
+      trial_lessons_count: eventCount,
+      trial_lessons_fee: eventTotalFee.toFixed(2),
+      trial_lessons: eventData.event_lessons || []
     });
   } catch (error) {
     next(error);
@@ -111,7 +109,15 @@ export const getAllTeacherPayments = async (req, res, next) => {
     query += ' GROUP BY tp.id, t.id ORDER BY tp.payment_type, tp.month_year DESC, t.last_name';
 
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    
+    // Use calculated paid_amount to ensure accuracy
+    const processedRows = result.rows.map(row => ({
+      ...row,
+      paid_amount: row.paid_amount_calculated,
+      remaining_amount: parseFloat(row.total_amount) - parseFloat(row.paid_amount_calculated)
+    }));
+    
+    res.json(processedRows);
   } catch (error) {
     next(error);
   }
