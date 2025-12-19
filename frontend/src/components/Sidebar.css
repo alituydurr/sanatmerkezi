@@ -54,7 +54,8 @@
 .logo-image {
   width: 56px;
   height: 56px;
-  object-fit: contain;
+  object-fit: cover;
+  border-radius: 8px;
   filter: brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
   transition: transform var(--transition-base);
 }
@@ -113,15 +114,15 @@
 }
 
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
   color: white;
   transform: translateX(4px);
 }
 
 .nav-item.active {
-  background: var(--gradient-primary);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
 .nav-item.active::before {
@@ -160,13 +161,14 @@
   width: 48px;
   height: 48px;
   border-radius: var(--radius-full);
-  background: var(--gradient-primary);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
   font-weight: 700;
   color: white;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
 .user-details {

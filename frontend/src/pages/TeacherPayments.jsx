@@ -239,34 +239,33 @@ export default function TeacherPayments() {
 
   return (
     <div className="page-container">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h1 className="page-title">💸 Gider Takibi</h1>
-          <p className="page-subtitle">Öğretmen ödemeleri ve genel giderler</p>
+          <h1 className="page-title" style={{ margin: 0, fontSize: '1.75rem' }}>💸 Gider Takibi</h1>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', justifyContent: 'flex-end', flex: 1 }}>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flex: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <input
             type="month"
             className="form-input"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            style={{ width: '200px' }}
+            style={{ width: '160px', padding: '0.6rem' }}
           />
           <input
             type="text"
             className="form-input"
-            placeholder="🔍 Öğretmen, kategori, fatura no ile ara..."
+            placeholder="🔍 Öğretmen, kategori, fatura..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '250px' }}
+            style={{ width: '220px', padding: '0.6rem' }}
           />
-          <button onClick={() => navigate('/teacher-payments/cancelled')} className="btn btn-secondary">
+          <button onClick={() => navigate('/teacher-payments/cancelled')} className="btn btn-secondary btn-sm">
             ❌ İptal Edilen Ödemeler
           </button>
-          <button onClick={() => setShowCalculateModal(true)} className="btn btn-primary">
+          <button onClick={() => setShowCalculateModal(true)} className="btn btn-primary btn-sm">
             ➕ Ödeme Hesapla
           </button>
-          <button onClick={() => setShowExpenseModal(true)} className="btn btn-success">
+          <button onClick={() => setShowExpenseModal(true)} className="btn btn-success btn-sm">
             ➕ Genel Gider Ekle
           </button>
         </div>
