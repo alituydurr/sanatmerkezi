@@ -15,7 +15,7 @@ export default function Courses() {
     course_type: 'group',
     capacity: '',
     duration_minutes: '',
-    price: ''
+
   });
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function Courses() {
         course_type: 'group',
         capacity: '',
         duration_minutes: '',
-        price: ''
+
       });
       loadCourses();
     } catch (error) {
@@ -91,7 +91,7 @@ export default function Courses() {
               <th>Tür</th>
               <th>Kapasite</th>
               <th>Süre (dk)</th>
-              <th>Ücret</th>
+
               <th>Öğrenci Sayısı</th>
               {isAdmin() && <th>İşlemler</th>}
             </tr>
@@ -107,7 +107,7 @@ export default function Courses() {
                 </td>
                 <td>{course.capacity || '-'}</td>
                 <td>{course.duration_minutes || '-'}</td>
-                <td>{course.price ? formatCurrencyWithSymbol(course.price) : '-'}</td>
+
                 <td>{course.enrolled_students || 0}</td>
                 {isAdmin() && (
                   <td>
@@ -182,16 +182,7 @@ export default function Courses() {
                     onChange={(e) => setFormData({...formData, duration_minutes: e.target.value})}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Ücret (₺)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-input"
-                    value={formData.price}
-                    onChange={(e) => setFormData({...formData, price: e.target.value})}
-                  />
-                </div>
+
               </div>
               <div className="modal-actions">
                 <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">

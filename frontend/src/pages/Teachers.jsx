@@ -19,7 +19,7 @@ export default function Teachers() {
     email: '',
     phone: '',
     specialization: '',
-    password: ''
+
   });
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function Teachers() {
         email: '',
         phone: '',
         specialization: '',
-        password: ''
+
       });
       loadData();
     } catch (error) {
@@ -223,16 +223,6 @@ export default function Teachers() {
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
                     placeholder="ornek@email.com"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Şifre *</label>
-                  <input
-                    type="password"
-                    className="form-input"
-                    value={formData.password}
-                    onChange={(e) => setFormData({...formData, password: e.target.value})}
                     required
                   />
                 </div>

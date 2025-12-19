@@ -7,15 +7,16 @@ export default function Sidebar() {
 
   const menuItems = [
     { path: '/', label: 'Ana Sayfa', icon: '🏠', roles: ['admin', 'teacher'] },
+    { path: '/tasks', label: 'Görevler', icon: '✅', roles: ['admin', 'teacher'] },
+    { path: '/notes', label: 'Notlarım', icon: '📝', roles: ['admin', 'teacher'] },
     { path: '/students', label: 'Öğrenci Yönetimi', icon: '👨‍🎓', roles: ['admin', 'teacher'] },
-    { path: '/teachers', label: 'Öğretmen Yönetimi', icon: '👨‍🏫', roles: ['admin'] },
-    { path: '/courses', label: 'Ders Yönetimi', icon: '📚', roles: ['admin', 'teacher'] },
     { path: '/schedule', label: 'Ders Program Takvimi', icon: '📅', roles: ['admin', 'teacher'] },
     { path: '/events', label: 'Etkinlikler', icon: '🎭', roles: ['admin', 'teacher'] },
     { path: '/payments', label: 'Ödeme Takibi', icon: '💰', roles: ['admin'] },
     { path: '/teacher-payments', label: 'Gider Takibi', icon: '💸', roles: ['admin'] },
     { path: '/financial-reports', label: 'Finansal Raporlar', icon: '📊', roles: ['admin'] },
-    { path: '/notes', label: 'Notlarım', icon: '📝', roles: ['admin', 'teacher'] }
+    { path: '/teachers', label: 'Öğretmen Yönetimi', icon: '👨‍🏫', roles: ['admin'] },
+    { path: '/courses', label: 'Ders Yönetimi', icon: '📚', roles: ['admin', 'teacher'] }
   ];
 
   const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));

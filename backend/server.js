@@ -14,6 +14,7 @@ import eventRoutes from './routes/events.js';
 import financialRoutes from './routes/financial.js';
 import appointmentRoutes from './routes/appointments.js';
 import noteRoutes from './routes/notes.js';
+import taskRoutes from './routes/tasks.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { apiLimiter } from './middleware/rateLimiter.js';
 import { httpsRedirect, helmetConfig, getCorsConfig, sanitizeForLogging } from './config/security.js';
@@ -65,6 +66,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/financial', financialRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/notes', noteRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // Error handlers
 app.use(notFoundHandler);
