@@ -14,17 +14,22 @@ export default function Sidebar() {
     { path: '/events', label: 'Etkinlikler', icon: '🎭', roles: ['admin', 'teacher'] },
     { path: '/payments', label: 'Ödeme Takibi', icon: '💰', roles: ['admin'] },
     { path: '/teacher-payments', label: 'Gider Takibi', icon: '💸', roles: ['admin'] },
-    { path: '/financial-reports', label: 'Finansal Raporlar', icon: '📊', roles: ['admin'] }
+    { path: '/financial-reports', label: 'Finansal Raporlar', icon: '📊', roles: ['admin'] },
+    { path: '/notes', label: 'Notlarım', icon: '📝', roles: ['admin', 'teacher'] }
   ];
 
   const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role));
+
 
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="logo">
           <img src="/unzile-logo.png" alt="ÜnzileArt Logo" className="logo-image" />
-          <h2 className="logo-text">ÜnzileArt</h2>
+          <div className="logo-content">
+            <h2 className="logo-text">ÜnzileArt</h2>
+            <p className="logo-subtitle">Sanat Merkezi</p>
+          </div>
         </div>
       </div>
 

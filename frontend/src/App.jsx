@@ -18,6 +18,7 @@ import CancelledTeacherPayments from './pages/CancelledTeacherPayments';
 import AttendanceHistory from './pages/AttendanceHistory';
 import Events from './pages/Events';
 import FinancialReports from './pages/FinancialReports';
+import Notes from './pages/Notes';
 import './index.css';
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
             <Route path="teacher-payments" element={<TeacherPayments />} />
             <Route path="teacher-payments/cancelled" element={<CancelledTeacherPayments />} />
             <Route path="financial-reports" element={<FinancialReports />} />
+            <Route path="notes" element={<Notes />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
