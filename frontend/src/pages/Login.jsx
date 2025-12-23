@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
 export default function Login() {
-  const [loginType, setLoginType] = useState('email'); // 'email' or 'phone'
-  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,7 +15,16 @@ export default function Login() {
     // Sadece rakamları al
     const numbers = value.replace(/\D/g, '');
     // 10 haneyle sınırla
-    return numbers.slice(0, 10);
+    const limited = numbers.slice(0, 10);
+    
+    // Format: 5XX-XXX-XXXX
+    if (limited.length <= 3) {
+      return limited;
+    } else if (limited.length <= 6) {
+      return `${limited.slice(0, 3)}-${limited.slice(3)}`;
+    } else {
+      return `${limited.slice(0, 3)}-${limited.slice(3, 6)}-${limited.slice(6)}`;
+    }
   };
 
   const handlePhoneChange = (e) => {
@@ -31,9 +38,9 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const credentials = loginType === 'phone' 
-        ? { phone, password }
-        : { email, password };
+      // Telefon numarasındaki tire işaretlerini temizle
+      const cleanPhone = phone.replace(/\D/g, '');
+      const credentials = { phone: cleanPhone, password };
 
       const result = await login(credentials);
       
@@ -76,113 +83,50 @@ export default function Login() {
           <p className="login-subtitle">Yönetim Paneline Hoş Geldiniz</p>
         </div>
 
-        {/* Login Type Toggle */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '8px', 
-          marginBottom: '24px',
-          background: 'var(--surface)',
-          padding: '4px',
-          borderRadius: 'var(--radius-lg)',
-        }}>
-          <button
-            type="button"
-            onClick={() => setLoginType('email')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              background: loginType === 'email' ? 'var(--primary)' : 'transparent',
-              color: loginType === 'email' ? 'white' : 'var(--text-secondary)',
-              fontWeight: loginType === 'email' ? '600' : '400',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            📧 E-posta
-          </button>
-          <button
-            type="button"
-            onClick={() => setLoginType('phone')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              background: loginType === 'phone' ? 'var(--primary)' : 'transparent',
-              color: loginType === 'phone' ? 'white' : 'var(--text-secondary)',
-              fontWeight: loginType === 'phone' ? '600' : '400',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            📱 Telefon
-          </button>
+      <form onSubmit={handleSubmit} className="login-form">
+        {error && (
+          <div className="alert alert-error">
+            {error}
+          </div>
+        )}
+
+        <div className="form-group">
+          <label htmlFor="phone" className="form-label">
+            📱 Telefon Numarası
+          </label>
+          <div style={{ position: 'relative' }}>
+            <input
+              id="phone"
+              type="tel"
+              className="form-input"
+              value={phone}
+              onChange={handlePhoneChange}
+              placeholder="5XX-XXX-XXXX"
+              required
+              autoFocus
+              style={{ paddingLeft: '45px' }}
+            />
+            <span style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-secondary)',
+              fontSize: '14px',
+              fontWeight: '500',
+            }}>
+              +90
+            </span>
+          </div>
+          <small style={{ 
+            display: 'block', 
+            marginTop: '4px', 
+            color: 'var(--text-secondary)', 
+            fontSize: '12px' 
+          }}>
+            0 olmadan 10 haneli telefon numaranızı girin
+          </small>
         </div>
-
-        <form onSubmit={handleSubmit} className="login-form">
-          {error && (
-            <div className="alert alert-error">
-              {error}
-            </div>
-          )}
-
-          {loginType === 'email' ? (
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">
-                E-posta
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="form-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="ornek@sanatmerkezi.com"
-                required
-                autoFocus
-              />
-            </div>
-          ) : (
-            <div className="form-group">
-              <label htmlFor="phone" className="form-label">
-                Telefon Numarası
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="phone"
-                  type="tel"
-                  className="form-input"
-                  value={phone}
-                  onChange={handlePhoneChange}
-                  placeholder="5XX XXX XXXX"
-                  required
-                  autoFocus
-                  style={{ paddingLeft: '45px' }}
-                />
-                <span style={{
-                  position: 'absolute',
-                  left: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-secondary)',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                }}>
-                  +90
-                </span>
-              </div>
-              <small style={{ 
-                display: 'block', 
-                marginTop: '4px', 
-                color: 'var(--text-secondary)', 
-                fontSize: '12px' 
-              }}>
-                0 olmadan 10 haneli telefon numaranızı girin
-              </small>
-            </div>
-          )}
 
           <div className="form-group">
             <label htmlFor="password" className="form-label">

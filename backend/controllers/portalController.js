@@ -117,8 +117,8 @@ export const getTeacherDashboard = async (req, res, next) => {
       FROM course_schedules cs
       LEFT JOIN courses c ON cs.course_id = c.id
       LEFT JOIN students s ON cs.student_id = s.id
-      LEFT JOIN attendance a ON a.schedule_id = cs.id AND a.attendance_date = cs.specific_date
-      WHERE cs.teacher_id = $1 AND cs.specific_date = $2
+      LEFT JOIN attendance a ON a.schedule_id = cs.id AND a.attendance_date = DATE(cs.specific_date)
+      WHERE cs.teacher_id = $1 AND DATE(cs.specific_date) = $2
       ORDER BY cs.start_time
     `,
       [teacher.id, today]
@@ -191,7 +191,7 @@ export const getTeacherLessons = async (req, res, next) => {
       FROM course_schedules cs
       LEFT JOIN courses c ON cs.course_id = c.id
       LEFT JOIN students s ON cs.student_id = s.id
-      LEFT JOIN attendance a ON a.schedule_id = cs.id AND a.attendance_date = cs.specific_date
+      LEFT JOIN attendance a ON a.schedule_id = cs.id AND a.attendance_date = DATE(cs.specific_date)
       WHERE cs.teacher_id = $1 
         AND TO_CHAR(cs.specific_date, 'YYYY-MM') = $2
       ORDER BY cs.specific_date, cs.start_time
@@ -326,12 +326,16 @@ export const markAttendance = async (req, res, next) => {
     }
 
     // Zaten işaretlenmiş mi kontrol et
+    const attendanceDate = schedule.specific_date instanceof Date 
+      ? schedule.specific_date.toISOString().split('T')[0]
+      : schedule.specific_date.split('T')[0];
+    
     const existingAttendance = await pool.query(
       `
       SELECT id FROM attendance
       WHERE schedule_id = $1 AND attendance_date = $2
     `,
-      [schedule_id, schedule.specific_date.split('T')[0]]
+      [schedule_id, attendanceDate]
     );
 
     if (existingAttendance.rows.length > 0) {
@@ -349,7 +353,7 @@ export const markAttendance = async (req, res, next) => {
       [
         schedule_id,
         schedule.student_id,
-        schedule.specific_date.split('T')[0],
+        attendanceDate,
         status,
         userId,
       ]
