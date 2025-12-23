@@ -209,12 +209,4 @@
   border-left-color: var(--primary-400) !important;
 }
 
-@media (max-width: 768px) {
-  .schedule-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .schedule-compact-left {
-    font-size: 0.8125rem;
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sadece bilgisayardan kullanım */

@@ -188,27 +188,4 @@
   color: var(--text-primary);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .lesson-dates-grid {
-    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
-    gap: var(--space-2);
-  }
-  
-  .lesson-date-card {
-    padding: var(--space-2);
-    min-height: 75px;
-  }
-  
-  .lesson-date {
-    font-size: 0.75rem;
-  }
-  
-  .lesson-time {
-    font-size: 0.75rem;
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sadece bilgisayardan kullanım */

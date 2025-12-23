@@ -1,0 +1,443 @@
+/* Portal Container - Responsive for Manager, Student, Teacher */
+.portal-container {
+  min-height: 100vh;
+  background: var(--background);
+  padding: var(--space-4);
+  max-width: 1200px; /* Manager, Student, Teacher için max-width */
+  margin: 0 auto;
+  width: 100%;
+}
+
+.portal-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-size: 1.2rem;
+  color: var(--text-secondary);
+}
+
+/* Header */
+.portal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.portal-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.portal-subtitle {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+/* Stats Cards */
+.portal-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.stat-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-icon {
+  font-size: 2.5rem;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Section */
+.portal-section {
+  margin-bottom: var(--space-6);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+}
+
+/* Lessons Grid */
+.lessons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+}
+
+.lesson-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.lesson-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.lesson-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.lesson-course {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.lesson-date {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.lesson-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lesson-time,
+.lesson-teacher {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Lessons List */
+.lessons-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lesson-list-item {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s;
+}
+
+.lesson-list-item:hover {
+  transform: translateX(4px);
+}
+
+.lesson-list-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.lesson-list-date {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.lesson-list-course {
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.lesson-list-time {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.lesson-list-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.attendance-icon {
+  font-size: 1.25rem;
+}
+
+.attendance-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Payment Cards */
+.payment-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+}
+
+.payment-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.payment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.payment-course {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.payment-status {
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.payment-status.active {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.payment-status.completed {
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.payment-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.payment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+}
+
+.payment-row span:first-child {
+  color: var(--text-secondary);
+}
+
+/* Teacher Portal Specific */
+.teacher-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-bottom: 2px solid var(--border-light);
+}
+
+.tab-button {
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.tab-button:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+/* Today's Lessons */
+.today-lessons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.today-lesson-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.today-lesson-card.marked {
+  opacity: 0.7;
+}
+
+.lesson-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.lesson-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.lesson-actions .btn {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* Finance Section */
+.finance-summary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
+}
+
+.finance-summary h3 {
+  margin: 0 0 var(--space-4) 0;
+  font-size: 1.25rem;
+}
+
+.finance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4);
+}
+
+.finance-item {
+  text-align: center;
+}
+
+.finance-label {
+  font-size: 0.875rem;
+  opacity: 0.9;
+  margin-bottom: var(--space-1);
+}
+
+.finance-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .portal-container {
+    padding: var(--space-3);
+  }
+
+  .portal-title {
+    font-size: 1.5rem;
+  }
+
+  .portal-header {
+    flex-direction: column;
+  }
+
+  .portal-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .lessons-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lesson-list-left {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+
+  .lesson-list-date {
+    min-width: auto;
+  }
+
+  .payment-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .teacher-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tab-button {
+    white-space: nowrap;
+  }
+
+  .lesson-actions {
+    flex-direction: column;
+  }
+
+  .lesson-actions .btn {
+    width: 100%;
+  }
+
+  .finance-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Touch-friendly buttons on mobile */
+@media (max-width: 768px) {
+  .btn {
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+  }
+}

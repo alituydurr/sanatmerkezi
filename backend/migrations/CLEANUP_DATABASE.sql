@@ -53,8 +53,11 @@ DELETE FROM teachers;
 -- 13. Delete courses
 DELETE FROM courses;
 
--- 14. Delete users (keep admin user)
-DELETE FROM users WHERE role != 'admin';
+-- 14. Delete login attempts
+DELETE FROM login_attempts;
+
+-- 15. Delete users (keep admin and admin2 users)
+DELETE FROM users WHERE role NOT IN ('admin', 'admin2');
 
 -- Reset sequences to start from 1
 ALTER SEQUENCE users_id_seq RESTART WITH 1;

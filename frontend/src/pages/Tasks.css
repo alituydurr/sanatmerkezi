@@ -1,7 +1,8 @@
 .tasks-container {
   padding: 2rem;
-  max-width: 1400px;
+  max-width: none; /* Admin sayfaları için max-width sınırlaması yok */
   margin: 0 auto;
+  width: 100%;
 }
 
 .tasks-header {
@@ -336,23 +337,4 @@
   margin-top: 2rem;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .tasks-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .tasks-actions {
-    width: 100%;
-  }
-
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-
-  .task-meta {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sadece bilgisayardan kullanım */

@@ -44,7 +44,7 @@ export const verifyToken = (req, res, next) => {
   }
 };
 
-// Require admin role
+// Require admin role (strict - only admin)
 export const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
@@ -52,10 +52,19 @@ export const requireAdmin = (req, res, next) => {
   next();
 };
 
-// Require teacher or admin role
-export const requireTeacherOrAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
-    return res.status(403).json({ error: 'Access denied. Teacher or admin privileges required.' });
+// Require admin or admin2 role (for manager access)
+export const requireAdminOrAdmin2 = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'admin2') {
+    return res.status(403).json({ error: 'Access denied. Admin or Manager privileges required.' });
   }
   next();
 };
+
+// Require teacher, admin, or admin2 role
+export const requireTeacherOrAdmin = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'admin2' && req.user.role !== 'teacher') {
+    return res.status(403).json({ error: 'Access denied. Teacher, admin, or manager privileges required.' });
+  }
+  next();
+};
+

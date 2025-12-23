@@ -9,11 +9,8 @@
   padding: var(--space-8);
   margin-left: 280px;
   animation: fadeIn var(--transition-base);
+  width: calc(100% - 280px); /* Sidebar genişliğini çıkar */
+  max-width: none; /* Admin sayfaları için max-width sınırlaması yok */
 }
 
-@media (max-width: 1024px) {
-  .main-content {
-    margin-left: 0;
-    padding: var(--space-6);
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sadece bilgisayardan kullanım */

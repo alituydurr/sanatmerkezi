@@ -30,16 +30,16 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (credentials) => {
     try {
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.login(credentials);
       const { token, user: userData } = response.data;
       
       // Only store token, user data will be fetched via /auth/me
       localStorage.setItem('token', token);
       setUser(userData);
       
-      return { success: true };
+      return { success: true, user: userData };
     } catch (error) {
       return {
         success: false,
@@ -54,10 +54,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = () => user?.role === 'admin';
+  const isAdmin2 = () => user?.role === 'admin2';
+  const isAdminOrAdmin2 = () => user?.role === 'admin' || user?.role === 'admin2';
   const isTeacher = () => user?.role === 'teacher';
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, isTeacher }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, isAdmin2, isAdminOrAdmin2, isTeacher }}>
       {children}
     </AuthContext.Provider>
   );

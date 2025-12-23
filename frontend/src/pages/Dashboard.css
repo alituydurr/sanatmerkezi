@@ -1,5 +1,7 @@
 .dashboard {
   animation: fadeIn var(--transition-base);
+  width: 100%;
+  max-width: none; /* Admin sayfaları için max-width sınırlaması yok */
 }
 
 .dashboard-header {
@@ -305,12 +307,4 @@
   color: var(--text-secondary);
 }
 
-@media (max-width: 768px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .actions-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sadece bilgisayardan kullanım */

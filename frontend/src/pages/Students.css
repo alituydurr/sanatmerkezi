@@ -1,5 +1,7 @@
 .page-container {
   animation: fadeIn var(--transition-base);
+  width: 100%;
+  max-width: none; /* Admin sayfaları için max-width sınırlaması yok */
 }
 
 .page-header {
@@ -69,13 +71,4 @@
   border-top: 1px solid var(--border-light);
 }
 
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sadece bilgisayardan kullanım */

@@ -11,10 +11,11 @@ import {
   getStudentSchedules,
   updateAllStudentsStatus
 } from '../controllers/studentController.js';
-import { verifyToken, requireAdmin, requireTeacherOrAdmin } from '../middleware/auth.js';
+import { verifyToken, requireAdmin, requireTeacherOrAdmin, requireAdminOrAdmin2 } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Admin2 can view students (for payment purposes)
 router.get('/', verifyToken, requireTeacherOrAdmin, getAllStudents);
 router.get('/stats/summary', verifyToken, requireTeacherOrAdmin, getStudentStats);
 router.get('/:id', verifyToken, requireTeacherOrAdmin, getStudentById);

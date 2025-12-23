@@ -39,8 +39,30 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  login: (email, password) => api.post('/auth/login', { email, password }),
-  getCurrentUser: () => api.get('/auth/me')
+  login: (credentials) => api.post('/auth/login', credentials),
+  getCurrentUser: () => api.get('/auth/me'),
+  activateAccount: (token, password) => api.post(`/auth/activate/${token}`, { password }),
+  requestPasswordReset: (data) => api.post('/auth/request-reset', data),
+  resetPassword: (token, password) => api.post(`/auth/reset/${token}`, { password })
+};
+
+// Portal API
+export const portalAPI = {
+  // Student Portal
+  getStudentDashboard: () => api.get('/portal/student/dashboard'),
+  
+  // Teacher Portal
+  getTeacherDashboard: () => api.get('/portal/teacher/dashboard'),
+  getTeacherLessons: (month) => api.get('/portal/teacher/lessons', { params: { month } }),
+  getTeacherFinance: () => api.get('/portal/teacher/finance'),
+  markAttendance: (data) => api.post('/portal/teacher/attendance', data)
+};
+
+// User Management API (Admin only)
+export const userManagementAPI = {
+  sendStudentActivation: (studentId) => api.post(`/user-management/students/${studentId}/send-activation`),
+  sendTeacherActivation: (teacherId) => api.post(`/user-management/teachers/${teacherId}/send-activation`),
+  sendPasswordReset: (userId) => api.post(`/user-management/users/${userId}/send-reset`)
 };
 
 // Students API
@@ -170,4 +192,26 @@ export const appointmentsAPI = {
   delete: (id) => api.delete(`/appointments/${id}`)
 };
 
+// Notes API
+export const notesAPI = {
+  getAll: () => api.get('/notes'),
+  getById: (id) => api.get(`/notes/${id}`),
+  create: (data) => api.post('/notes', data),
+  update: (id, data) => api.put(`/notes/${id}`, data),
+  delete: (id) => api.delete(`/notes/${id}`),
+  togglePin: (id) => api.patch(`/notes/${id}/pin`)
+};
+
+// Tasks API
+export const tasksAPI = {
+  getAll: () => api.get('/tasks'),
+  getToday: () => api.get('/tasks/today'),
+  getTomorrowPreparations: () => api.get('/tasks/tomorrow-preparations'),
+  create: (data) => api.post('/tasks', data),
+  update: (id, data) => api.put(`/tasks/${id}`, data),
+  toggleComplete: (id) => api.patch(`/tasks/${id}/toggle`),
+  delete: (id) => api.delete(`/tasks/${id}`)
+};
+
 export default api;
+

@@ -9,7 +9,8 @@
     "dev": "node --watch server.js",
     "init-db": "node scripts/initDatabase.js",
     "migrate": "node scripts/runMigration.js",
-    "security-check": "node scripts/securityCheck.js"
+    "security-check": "node scripts/securityCheck.js",
+    "update-admins": "node scripts/updateAdminUsers.js"
   },
   "keywords": [
     "art-center",
@@ -27,6 +28,7 @@
     "express-validator": "^7.3.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^7.0.11",
     "pg": "^8.11.3",
     "winston": "^3.19.0"
   }

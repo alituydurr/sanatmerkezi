@@ -1,7 +1,8 @@
 .notes-container {
   padding: 2rem;
-  max-width: 1400px;
+  max-width: none; /* Admin sayfaları için max-width sınırlaması yok */
   margin: 0 auto;
+  width: 100%;
 }
 
 .notes-header {
@@ -427,27 +428,4 @@
   color: #999;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .notes-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .notes-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .search-box input {
-    width: 100%;
-  }
-
-  .notes-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-content {
-    padding: 1.5rem;
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sadece bilgisayardan kullanım */

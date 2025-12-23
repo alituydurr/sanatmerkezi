@@ -21,21 +21,9 @@
   overflow: hidden;
 }
 
+/* Arka plan logosu kaldırıldı */
 .sidebar-header::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  right: -20px;
-  transform: translateY(-50%);
-  width: 180px;
-  height: 180px;
-  background-image: url('/unzile-logo.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  opacity: 0.08;
-  filter: blur(1px);
-  pointer-events: none;
+  display: none;
 }
 
 .logo {
@@ -52,12 +40,7 @@
 }
 
 .logo-image {
-  width: 56px;
-  height: 56px;
-  object-fit: cover;
-  border-radius: 8px;
-  filter: brightness(1.1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
-  transition: transform var(--transition-base);
+  display: none !important; /* Logo resmini tamamen gizle */
 }
 
 .logo-image:hover {
@@ -205,12 +188,4 @@
   border-color: rgba(255, 255, 255, 0.3);
 }
 
-@media (max-width: 1024px) {
-  .sidebar {
-    transform: translateX(-100%);
-  }
-  
-  .sidebar.open {
-    transform: translateX(0);
-  }
-}
+/* Admin sayfaları için responsive tasarım YOK - sidebar her zaman görünür */

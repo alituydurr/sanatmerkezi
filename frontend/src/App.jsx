@@ -3,6 +3,11 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import ActivateAccount from './pages/ActivateAccount';
+import ResetPassword from './pages/ResetPassword';
+import StudentPortal from './pages/StudentPortal';
+import TeacherPortal from './pages/TeacherPortal';
+import ManagerPortal from './pages/ManagerPortal';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
 import StudentDetail from './pages/StudentDetail';
@@ -27,8 +32,33 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/activate/:token" element={<ActivateAccount />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           
+          {/* Student Portal (Protected) */}
+          <Route path="/student-portal" element={
+            <ProtectedRoute>
+              <StudentPortal />
+            </ProtectedRoute>
+          } />
+          
+          {/* Teacher Portal (Protected) */}
+          <Route path="/teacher-portal" element={
+            <ProtectedRoute>
+              <TeacherPortal />
+            </ProtectedRoute>
+          } />
+          
+          {/* Manager Portal (Protected - Admin2) */}
+          <Route path="/manager-portal/*" element={
+            <ProtectedRoute>
+              <ManagerPortal />
+            </ProtectedRoute>
+          } />
+          
+          {/* Admin Routes (Protected with Layout) */}
           <Route path="/" element={
             <ProtectedRoute>
               <Layout />
@@ -61,3 +91,4 @@ function App() {
 }
 
 export default App;
+

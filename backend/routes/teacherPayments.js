@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyToken, requireAdmin } from '../middleware/auth.js';
+import { verifyToken, requireAdminOrAdmin2 } from '../middleware/auth.js';
 import {
   calculateTeacherHours,
   getAllTeacherPayments,
@@ -14,9 +14,9 @@ import {
 
 const router = express.Router();
 
-// All routes require admin authentication
+// All routes require admin or admin2 authentication
 router.use(verifyToken);
-router.use(requireAdmin);
+router.use(requireAdminOrAdmin2);
 
 // Calculate teacher hours for a month
 router.get('/calculate/:teacherId/:monthYear', calculateTeacherHours);

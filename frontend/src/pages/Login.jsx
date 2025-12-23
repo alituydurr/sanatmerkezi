@@ -4,24 +4,56 @@ import { useAuth } from '../context/AuthContext';
 import './Login.css';
 
 export default function Login() {
+  const [loginType, setLoginType] = useState('email'); // 'email' or 'phone'
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const formatPhoneInput = (value) => {
+    // Sadece rakamları al
+    const numbers = value.replace(/\D/g, '');
+    // 10 haneyle sınırla
+    return numbers.slice(0, 10);
+  };
+
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhoneInput(e.target.value);
+    setPhone(formatted);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    const result = await login(email, password);
-    
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.error);
+    try {
+      const credentials = loginType === 'phone' 
+        ? { phone, password }
+        : { email, password };
+
+      const result = await login(credentials);
+      
+      if (result.success) {
+        // Rol bazlı yönlendirme
+        const role = result.user?.role;
+        if (role === 'student') {
+          navigate('/student-portal');
+        } else if (role === 'teacher') {
+          navigate('/teacher-portal');
+        } else if (role === 'admin2') {
+          navigate('/manager-portal');
+        } else {
+          navigate('/');
+        }
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Giriş yapılırken bir hata oluştu');
     }
     
     setLoading(false);
@@ -44,6 +76,51 @@ export default function Login() {
           <p className="login-subtitle">Yönetim Paneline Hoş Geldiniz</p>
         </div>
 
+        {/* Login Type Toggle */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '8px', 
+          marginBottom: '24px',
+          background: 'var(--surface)',
+          padding: '4px',
+          borderRadius: 'var(--radius-lg)',
+        }}>
+          <button
+            type="button"
+            onClick={() => setLoginType('email')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: loginType === 'email' ? 'var(--primary)' : 'transparent',
+              color: loginType === 'email' ? 'white' : 'var(--text-secondary)',
+              fontWeight: loginType === 'email' ? '600' : '400',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            📧 E-posta
+          </button>
+          <button
+            type="button"
+            onClick={() => setLoginType('phone')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              background: loginType === 'phone' ? 'var(--primary)' : 'transparent',
+              color: loginType === 'phone' ? 'white' : 'var(--text-secondary)',
+              fontWeight: loginType === 'phone' ? '600' : '400',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            📱 Telefon
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="login-form">
           {error && (
             <div className="alert alert-error">
@@ -51,21 +128,61 @@ export default function Login() {
             </div>
           )}
 
-          <div className="form-group">
-            <label htmlFor="email" className="form-label">
-              E-posta
-            </label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ornek@sanatmerkezi.com"
-              required
-              autoFocus
-            />
-          </div>
+          {loginType === 'email' ? (
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
+                E-posta
+              </label>
+              <input
+                id="email"
+                type="email"
+                className="form-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ornek@sanatmerkezi.com"
+                required
+                autoFocus
+              />
+            </div>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="phone" className="form-label">
+                Telefon Numarası
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="phone"
+                  type="tel"
+                  className="form-input"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  placeholder="5XX XXX XXXX"
+                  required
+                  autoFocus
+                  style={{ paddingLeft: '45px' }}
+                />
+                <span style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                }}>
+                  +90
+                </span>
+              </div>
+              <small style={{ 
+                display: 'block', 
+                marginTop: '4px', 
+                color: 'var(--text-secondary)', 
+                fontSize: '12px' 
+              }}>
+                0 olmadan 10 haneli telefon numaranızı girin
+              </small>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="password" className="form-label">
@@ -94,10 +211,11 @@ export default function Login() {
 
         <div className="login-footer">
           <p className="text-sm text-secondary">
-            Demo hesaplar: admin@sanatmerkezi.com / admin123
+            Şifrenizi mi unuttunuz? Yöneticinizle iletişime geçin.
           </p>
         </div>
       </div>
     </div>
   );
 }
+

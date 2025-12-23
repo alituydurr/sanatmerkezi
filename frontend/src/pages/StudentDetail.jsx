@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { studentsAPI, coursesAPI, teachersAPI, schedulesAPI, attendanceAPI } from '../services/api';
+import { studentsAPI, coursesAPI, teachersAPI, schedulesAPI, attendanceAPI, userManagementAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
 import './StudentDetail.css';
@@ -41,6 +41,7 @@ export default function StudentDetail() {
     phone: '',
     address: ''
   });
+  const [sendingActivation, setSendingActivation] = useState(false);
 
   const daysOfWeek = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
@@ -308,6 +309,29 @@ export default function StudentDetail() {
     }
   };
 
+  const handleSendActivation = async () => {
+    if (!student.email || !student.phone) {
+      alert('Öğrencinin email ve telefon bilgisi eksik. Lütfen önce bu bilgileri ekleyin.');
+      return;
+    }
+
+    const confirmMessage = `⚠️ DİKKAT ⚠️\n\n${student.first_name} ${student.last_name} adlı öğrenciye şifre oluşturma/sıfırlama bağlantısı gönderilecek.\n\nEmail: ${student.email}\nTelefon: ${student.phone}\n\nBu işlemi onaylıyor musunuz?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setSendingActivation(true);
+    try {
+      await userManagementAPI.sendStudentActivation(id);
+      alert('✅ Aktivasyon maili başarıyla gönderildi!\n\nÖğrenci emailini kontrol etmeli ve linke tıklayarak şifresini oluşturmalıdır.');
+    } catch (error) {
+      alert(error.response?.data?.error || 'Aktivasyon maili gönderilemedi');
+    } finally {
+      setSendingActivation(false);
+    }
+  };
+
   // Helper function to get attendance color
   const getAttendanceColor = (scheduleId, date) => {
     // Normalize date format (remove time part if exists)
@@ -356,7 +380,20 @@ export default function StudentDetail() {
           <p className="page-subtitle">Öğrenci Detayları</p>
         </div>
         {isAdmin() && (
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <button 
+              onClick={handleSendActivation} 
+              className="btn btn-secondary"
+              disabled={sendingActivation}
+              title="Öğrenciye şifre oluşturma/sıfırlama bağlantısı gönder"
+              style={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                border: 'none'
+              }}
+            >
+              {sendingActivation ? '📧 Gönderiliyor...' : '🔐 Şifre Bağlantısı Gönder'}
+            </button>
             <button onClick={openEditModal} className="btn btn-secondary">
               ✏️ Bilgileri Düzenle
             </button>

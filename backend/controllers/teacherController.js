@@ -98,6 +98,42 @@ export const createTeacher = async (req, res, next) => {
       return res.status(400).json({ error: 'First name, last name, email, and password are required' });
     }
 
+    // Telefon numarası kontrolü
+    if (phone) {
+      // Telefon formatı kontrolü (0 olmadan 10 hane, 5 ile başlamalı)
+      if (!/^5\d{9}$/.test(phone)) {
+        return res.status(400).json({ 
+          error: 'Geçerli bir telefon numarası giriniz (0 olmadan 10 haneli, 5 ile başlamalı)' 
+        });
+      }
+
+      // Bu telefon numarası başka bir öğretmende var mı?
+      const existingTeacher = await pool.query(
+        'SELECT id, first_name, last_name FROM teachers WHERE phone = $1',
+        [phone]
+      );
+
+      if (existingTeacher.rows.length > 0) {
+        const existing = existingTeacher.rows[0];
+        return res.status(400).json({ 
+          error: `Bu telefon numarası zaten kayıtlı (Öğretmen: ${existing.first_name} ${existing.last_name})` 
+        });
+      }
+
+      // Bu telefon numarası bir öğrencide var mı?
+      const existingStudent = await pool.query(
+        'SELECT id, first_name, last_name FROM students WHERE phone = $1',
+        [phone]
+      );
+
+      if (existingStudent.rows.length > 0) {
+        const existing = existingStudent.rows[0];
+        return res.status(400).json({ 
+          error: `Bu telefon numarası zaten kayıtlı (Öğrenci: ${existing.first_name} ${existing.last_name})` 
+        });
+      }
+    }
+
     // Create user account first
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -137,6 +173,42 @@ export const updateTeacher = async (req, res, next) => {
       bio,
       status
     } = req.body;
+
+    // Telefon numarası kontrolü
+    if (phone) {
+      // Telefon formatı kontrolü (0 olmadan 10 hane, 5 ile başlamalı)
+      if (!/^5\d{9}$/.test(phone)) {
+        return res.status(400).json({ 
+          error: 'Geçerli bir telefon numarası giriniz (0 olmadan 10 haneli, 5 ile başlamalı)' 
+        });
+      }
+
+      // Bu telefon numarası başka bir öğretmende var mı? (kendisi hariç)
+      const existingTeacher = await pool.query(
+        'SELECT id, first_name, last_name FROM teachers WHERE phone = $1 AND id != $2',
+        [phone, id]
+      );
+
+      if (existingTeacher.rows.length > 0) {
+        const existing = existingTeacher.rows[0];
+        return res.status(400).json({ 
+          error: `Bu telefon numarası zaten kayıtlı (Öğretmen: ${existing.first_name} ${existing.last_name})` 
+        });
+      }
+
+      // Bu telefon numarası bir öğrencide var mı?
+      const existingStudent = await pool.query(
+        'SELECT id, first_name, last_name FROM students WHERE phone = $1',
+        [phone]
+      );
+
+      if (existingStudent.rows.length > 0) {
+        const existing = existingStudent.rows[0];
+        return res.status(400).json({ 
+          error: `Bu telefon numarası zaten kayıtlı (Öğrenci: ${existing.first_name} ${existing.last_name})` 
+        });
+      }
+    }
 
     const result = await pool.query(`
       UPDATE teachers
