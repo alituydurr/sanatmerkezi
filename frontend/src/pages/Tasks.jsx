@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { schedulesAPI, financialAPI, eventsAPI } from '../services/api';
+import { schedulesAPI, financialAPI, eventsAPI, tasksAPI } from '../services/api';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
+import { useToast } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 import './Tasks.css';
-
-const API_URL = 'http://localhost:5000/api';
 
 const TASK_CATEGORIES = [
   'Ders',
@@ -17,6 +16,7 @@ const TASK_CATEGORIES = [
 ];
 
 const Tasks = () => {
+  const toast = useToast();
   const [todayTasks, setTodayTasks] = useState([]);
   const [tomorrowPreparations, setTomorrowPreparations] = useState([]);
   const [dashboardTasks, setDashboardTasks] = useState({
@@ -119,26 +119,22 @@ const Tasks = () => {
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Dashboard verileri yüklenirken hata oluştu');
     }
   };
 
   const fetchTasks = async () => {
     try {
-      const token = localStorage.getItem('token');
       const [todayRes, tomorrowRes] = await Promise.all([
-        axios.get(`${API_URL}/tasks/today`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_URL}/tasks/tomorrow-preparations`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        tasksAPI.getToday(),
+        tasksAPI.getTomorrowPreparations()
       ]);
       
       setTodayTasks(todayRes.data);
       setTomorrowPreparations(tomorrowRes.data);
     } catch (error) {
       console.error('Error fetching tasks:', error);
-      alert('Görevler yüklenirken hata oluştu');
+      toast.error('Görevler yüklenirken hata oluştu');
     }
   };
 
@@ -191,41 +187,34 @@ const Tasks = () => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      alert('Başlık gereklidir');
+      toast.warning('Başlık gereklidir');
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      
       if (editingTask) {
-        await axios.put(`${API_URL}/tasks/${editingTask.id}`, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await tasksAPI.update(editingTask.id, formData);
+        toast.success('✅ Görev güncellendi');
       } else {
-        await axios.post(`${API_URL}/tasks`, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await tasksAPI.create(formData);
+        toast.success('✅ Görev eklendi');
       }
 
       fetchTasks();
       handleCloseModal();
     } catch (error) {
       console.error('Error saving task:', error);
-      alert('Görev kaydedilirken hata oluştu');
+      toast.error('Görev kaydedilirken hata oluştu');
     }
   };
 
   const handleToggleComplete = async (taskId) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.patch(`${API_URL}/tasks/${taskId}/toggle`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await tasksAPI.toggleComplete(taskId);
       fetchTasks();
     } catch (error) {
       console.error('Error toggling task:', error);
-      alert('Görev durumu değiştirilirken hata oluştu');
+      toast.error('Görev durumu değiştirilirken hata oluştu');
     }
   };
 
@@ -246,14 +235,12 @@ const Tasks = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await tasksAPI.delete(taskId);
+      toast.success('🗑️ Görev silindi');
       fetchTasks();
     } catch (error) {
       console.error('Error deleting task:', error);
-      alert('Görev silinirken hata oluştu');
+      toast.error('Görev silinirken hata oluştu');
     }
   };
 

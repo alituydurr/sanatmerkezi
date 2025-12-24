@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Routes, Route } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { financialAPI, paymentsAPI, teacherPaymentsAPI } from '../services/api';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
+import LoadingSpinner from '../components/LoadingSpinner';
 import ManagerNotes from './manager/ManagerNotes';
 import ManagerTasks from './manager/ManagerTasks';
 import ManagerPayments from './manager/ManagerPayments';
@@ -14,6 +16,7 @@ import './ManagerPortal.css';
 export default function ManagerPortal() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -59,6 +62,7 @@ export default function ManagerPortal() {
       });
     } catch (error) {
       console.error('Dashboard yüklenemedi:', error);
+      toast.error('Dashboard yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }

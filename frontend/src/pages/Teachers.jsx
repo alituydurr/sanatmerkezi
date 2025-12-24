@@ -3,11 +3,14 @@ import { teachersAPI, coursesAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatPhoneNumber, unformatPhoneNumber } from '../utils/formatters';
+import { useToast } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 import '../pages/Students.css';
 
 export default function Teachers() {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [teachers, setTeachers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +39,7 @@ export default function Teachers() {
       setCourses(coursesRes.data);
     } catch (error) {
       console.error('Error loading data:', error);
+      toast.error('Veriler yüklenirken bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -45,6 +49,7 @@ export default function Teachers() {
     e.preventDefault();
     try {
       await teachersAPI.create(formData);
+      toast.success('✅ Öğretmen başarıyla eklendi!');
       setShowModal(false);
       setFormData({
         first_name: '',
@@ -57,7 +62,7 @@ export default function Teachers() {
       loadData();
     } catch (error) {
       console.error('Error creating teacher:', error);
-      alert('Öğretmen eklenirken hata oluştu');
+      toast.error(error.response?.data?.error || 'Öğretmen eklenirken hata oluştu');
     }
   };
 
@@ -66,10 +71,11 @@ export default function Teachers() {
     
     try {
       await teachersAPI.delete(id);
+      toast.success('🗑️ Öğretmen silindi');
       loadData();
     } catch (error) {
       console.error('Error deleting teacher:', error);
-      alert('Öğretmen silinirken hata oluştu');
+      toast.error(error.response?.data?.error || 'Öğretmen silinirken hata oluştu');
     }
   };
 
@@ -85,7 +91,7 @@ export default function Teachers() {
   });
 
   if (loading) {
-    return <div className="loading-container">Yükleniyor...</div>;
+    return <LoadingSpinner fullScreen />;
   }
 
   return (

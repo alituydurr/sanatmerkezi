@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { notesAPI } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 import './Notes.css';
-
-const API_URL = 'http://localhost:5000/api';
 
 // Renk seçenekleri
 const COLOR_OPTIONS = [
@@ -27,6 +27,7 @@ const CATEGORIES = [
 ];
 
 const Notes = () => {
+  const toast = useToast();
   const [notes, setNotes] = useState([]);
   const [filteredNotes, setFilteredNotes] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,14 +52,11 @@ const Notes = () => {
 
   const fetchNotes = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/notes`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await notesAPI.getAll();
       setNotes(response.data);
     } catch (error) {
       console.error('Error fetching notes:', error);
-      alert('Notlar yüklenirken hata oluştu');
+      toast.error('Notlar yüklenirken hata oluştu');
     }
   };
 
@@ -124,28 +122,24 @@ const Notes = () => {
     e.preventDefault();
 
     if (!formData.title.trim() || !formData.content.trim()) {
-      alert('Başlık ve içerik gereklidir');
+      toast.warning('Başlık ve içerik gereklidir');
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      
       if (editingNote) {
-        await axios.put(`${API_URL}/notes/${editingNote.id}`, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await notesAPI.update(editingNote.id, formData);
+        toast.success('✅ Not güncellendi');
       } else {
-        await axios.post(`${API_URL}/notes`, formData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await notesAPI.create(formData);
+        toast.success('✅ Not eklendi');
       }
 
       fetchNotes();
       handleCloseModal();
     } catch (error) {
       console.error('Error saving note:', error);
-      alert('Not kaydedilirken hata oluştu');
+      toast.error('Not kaydedilirken hata oluştu');
     }
   };
 
@@ -155,27 +149,22 @@ const Notes = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/notes/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await notesAPI.delete(id);
+      toast.success('🗑️ Not silindi');
       fetchNotes();
     } catch (error) {
       console.error('Error deleting note:', error);
-      alert('Not silinirken hata oluştu');
+      toast.error('Not silinirken hata oluştu');
     }
   };
 
   const handleTogglePin = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.patch(`${API_URL}/notes/${id}/pin`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await notesAPI.togglePin(id);
       fetchNotes();
     } catch (error) {
       console.error('Error toggling pin:', error);
-      alert('Not sabitleme durumu değiştirilirken hata oluştu');
+      toast.error('Not sabitleme durumu değiştirilirken hata oluştu');
     }
   };
 

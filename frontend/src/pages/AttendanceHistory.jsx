@@ -25,7 +25,14 @@ export default function AttendanceHistory() {
       const response = isTeacher() 
         ? await attendanceAPI.getTeacherAttendance(dateRange.start_date, dateRange.end_date)
         : await attendanceAPI.getAllAttendance(dateRange.start_date, dateRange.end_date);
-      setAttendanceRecords(response.data);
+      
+      // Sort: pending/absent first, then present/cancelled
+      const sorted = response.data.sort((a, b) => {
+        const statusOrder = { 'absent': 0, 'pending': 1, 'present': 2, 'cancelled': 3 };
+        return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+      });
+      
+      setAttendanceRecords(sorted);
     } catch (error) {
       console.error('Error loading attendance:', error);
     } finally {
@@ -81,7 +88,7 @@ export default function AttendanceHistory() {
               <th>Ders</th>
               {isAdmin() && <th>Öğretmen</th>}
               <th>Saat</th>
-              <th>Onay Tarihi</th>
+              <th>İşaretlenme Tarihi</th>
               <th>Durum</th>
             </tr>
           </thead>
@@ -97,8 +104,8 @@ export default function AttendanceHistory() {
                   )}
                   <td>{record.start_time?.slice(0, 5)} - {record.end_time?.slice(0, 5)}</td>
                   <td>
-                    {record.confirmation_date 
-                      ? new Date(record.confirmation_date).toLocaleDateString('tr-TR', {
+                    {record.created_at 
+                      ? new Date(record.created_at).toLocaleDateString('tr-TR', {
                           day: 'numeric',
                           month: 'short',
                           hour: '2-digit',
@@ -107,8 +114,16 @@ export default function AttendanceHistory() {
                       : '-'}
                   </td>
                   <td>
-                    <span className={`badge badge-${record.confirmed_by_teacher ? 'success' : 'warning'}`}>
-                      {record.confirmed_by_teacher ? 'Onaylandı' : 'Bekliyor'}
+                    <span className={`badge badge-${
+                      record.status === 'present' ? 'success' : 
+                      record.status === 'absent' ? 'error' : 
+                      record.status === 'cancelled' ? 'secondary' : 
+                      'warning'
+                    }`}>
+                      {record.status === 'present' ? 'Geldi' : 
+                       record.status === 'absent' ? 'Gelmedi' : 
+                       record.status === 'cancelled' ? 'İptal' : 
+                       'Bekliyor'}
                     </span>
                   </td>
                 </tr>

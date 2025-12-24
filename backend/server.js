@@ -76,13 +76,14 @@ app.use('/api/user-management', userManagementRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
+// Start server - bind to 0.0.0.0 to allow network access (tablets, phones)
+app.listen(PORT, '0.0.0.0', () => {
   console.log('╔════════════════════════════════════════════╗');
   console.log('║   Sanat Merkezi Yönetim Sistemi API       ║');
   console.log('╚════════════════════════════════════════════╝');
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 API URL: http://localhost:${PORT}`);
+  console.log(`🌐 Network Access: http://192.168.0.36:${PORT}`);
   console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
   console.log('');
   console.log('Available endpoints:');

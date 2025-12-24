@@ -61,9 +61,19 @@ export const getCorsConfig = () => {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
       
+      // In development, allow local network IPs (for tablets, phones on same WiFi)
+      if (process.env.NODE_ENV !== 'production') {
+        // Allow localhost and local network IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        const localNetworkRegex = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+        if (localNetworkRegex.test(origin)) {
+          return callback(null, true);
+        }
+      }
+      
       if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
+        console.warn(`⚠️  CORS blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },

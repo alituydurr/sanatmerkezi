@@ -1,6 +1,27 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Dynamically determine API URL based on current host
+// If accessing from network (e.g., tablet), use the same host IP
+// If on localhost, use localhost
+const getApiUrl = () => {
+  // Check if there's an environment variable set
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  
+  // Get current hostname
+  const hostname = window.location.hostname;
+  
+  // If accessing from network (not localhost), use the same IP for API
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return `http://${hostname}:5000/api`;
+  }
+  
+  // Default to localhost
+  return 'http://localhost:5000/api';
+};
+
+const API_URL = getApiUrl();
 
 // Create axios instance
 const api = axios.create({

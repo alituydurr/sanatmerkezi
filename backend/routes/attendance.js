@@ -5,7 +5,9 @@ import {
   getAttendanceBySchedule,
   getAttendanceByStudent,
   getStudentAttendanceStats,
-  getTodayLessonsWithAttendance
+  getTodayLessonsWithAttendance,
+  getAllAttendance,
+  getTeacherAttendance
 } from '../controllers/attendanceController.js';
 import { verifyToken } from '../middleware/auth.js';
 
@@ -31,5 +33,11 @@ router.get('/student/:studentId/stats', getStudentAttendanceStats);
 
 // Get today's lessons with attendance status
 router.get('/today', getTodayLessonsWithAttendance);
+
+// Get all attendance records (Admin only)
+router.get('/all', getAllAttendance);
+
+// Get teacher's attendance records (Teacher only)
+router.get('/teacher', getTeacherAttendance);
 
 export default router;

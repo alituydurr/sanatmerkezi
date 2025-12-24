@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { portalAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { formatCurrencyWithSymbol } from '../utils/formatters';
+import LoadingSpinner from '../components/LoadingSpinner';
 import './Portal.css';
 
 export default function TeacherPortal() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('lessons'); // 'lessons' or 'finance'
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
@@ -16,6 +19,7 @@ export default function TeacherPortal() {
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().slice(0, 7) // YYYY-MM
   );
+  const [markingAttendance, setMarkingAttendance] = useState(false);
 
   useEffect(() => {
     loadDashboard();
@@ -35,6 +39,7 @@ export default function TeacherPortal() {
       setDashboardData(response.data);
     } catch (error) {
       console.error('Dashboard yüklenemedi:', error);
+      toast.error('Dashboard yüklenirken hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -46,6 +51,7 @@ export default function TeacherPortal() {
       setLessonsData(response.data);
     } catch (error) {
       console.error('Dersler yüklenemedi:', error);
+      toast.error('Dersler yüklenirken hata oluştu');
     }
   };
 
@@ -55,17 +61,21 @@ export default function TeacherPortal() {
       setFinanceData(response.data);
     } catch (error) {
       console.error('Finans bilgileri yüklenemedi:', error);
+      toast.error('Finans bilgileri yüklenirken hata oluştu');
     }
   };
 
   const handleMarkAttendance = async (scheduleId, status) => {
+    setMarkingAttendance(true);
     try {
       await portalAPI.markAttendance({ schedule_id: scheduleId, status });
-      alert('Yoklama başarıyla işaretlendi');
+      toast.success('✅ Yoklama başarıyla işaretlendi!');
       loadLessons();
       loadDashboard();
     } catch (error) {
-      alert(error.response?.data?.error || 'Yoklama işaretlenirken hata oluştu');
+      toast.error(error.response?.data?.error || 'Yoklama işaretlenirken hata oluştu');
+    } finally {
+      setMarkingAttendance(false);
     }
   };
 
@@ -88,11 +98,7 @@ export default function TeacherPortal() {
   };
 
   if (loading) {
-    return (
-      <div className="portal-container">
-        <div className="portal-loading">Yükleniyor...</div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen />;
   }
 
   const todayLessons = dashboardData?.today_lessons || [];

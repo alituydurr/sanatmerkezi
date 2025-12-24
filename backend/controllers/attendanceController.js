@@ -263,3 +263,104 @@ export const getTodayLessonsWithAttendance = async (req, res, next) => {
     next(error);
   }
 };
+
+// Get all attendance records (Admin only)
+export const getAllAttendance = async (req, res, next) => {
+  try {
+    const { start_date, end_date } = req.query;
+
+    if (!start_date || !end_date) {
+      return res.status(400).json({ 
+        error: 'Start date and end date are required' 
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        a.id,
+        a.schedule_id,
+        a.student_id,
+        a.attendance_date::text as attendance_date,
+        a.status,
+        a.notes,
+        a.created_at,
+        cs.day_of_week,
+        cs.start_time,
+        cs.end_time,
+        cs.specific_date::text as specific_date,
+        c.name as course_name,
+        c.course_type,
+        t.id as teacher_id,
+        t.first_name as teacher_first_name,
+        t.last_name as teacher_last_name,
+        s.first_name as student_first_name,
+        s.last_name as student_last_name,
+        u.full_name as marked_by_name
+      FROM attendance a
+      INNER JOIN course_schedules cs ON a.schedule_id = cs.id
+      LEFT JOIN courses c ON cs.course_id = c.id
+      LEFT JOIN teachers t ON cs.teacher_id = t.id
+      LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN users u ON a.marked_by = u.id
+      WHERE a.attendance_date BETWEEN $1 AND $2
+      ORDER BY a.attendance_date DESC, cs.start_time`,
+      [start_date, end_date]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get teacher's attendance records (Teacher only)
+export const getTeacherAttendance = async (req, res, next) => {
+  try {
+    const { start_date, end_date } = req.query;
+    const teacherId = req.user.teacher_id; // Assuming teacher_id is stored in user token
+
+    if (!start_date || !end_date) {
+      return res.status(400).json({ 
+        error: 'Start date and end date are required' 
+      });
+    }
+
+    if (!teacherId) {
+      return res.status(403).json({ 
+        error: 'Only teachers can access this endpoint' 
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT 
+        a.id,
+        a.schedule_id,
+        a.student_id,
+        a.attendance_date::text as attendance_date,
+        a.status,
+        a.notes,
+        a.created_at,
+        cs.day_of_week,
+        cs.start_time,
+        cs.end_time,
+        cs.specific_date::text as specific_date,
+        c.name as course_name,
+        c.course_type,
+        s.first_name as student_first_name,
+        s.last_name as student_last_name
+      FROM attendance a
+      INNER JOIN course_schedules cs ON a.schedule_id = cs.id
+      LEFT JOIN courses c ON cs.course_id = c.id
+      LEFT JOIN students s ON a.student_id = s.id
+      WHERE cs.teacher_id = $1 
+        AND a.attendance_date BETWEEN $2 AND $3
+      ORDER BY a.attendance_date DESC, cs.start_time`,
+      [teacherId, start_date, end_date]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    next(error);
+  }
+};
+
