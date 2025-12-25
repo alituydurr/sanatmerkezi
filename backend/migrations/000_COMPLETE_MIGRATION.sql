@@ -266,6 +266,7 @@ CREATE TABLE attendance (
   UNIQUE(schedule_id, student_id, attendance_date)
 );
 
+
 COMMENT ON TABLE attendance IS 'Tracks student attendance for each scheduled lesson';
 COMMENT ON COLUMN attendance.status IS 'present: student attended, absent: student did not attend, cancelled: lesson was cancelled';
 COMMENT ON COLUMN teacher_payments.payment_type IS 'teacher_salary: Öğretmen maaşı, general_expense: Genel gider';
@@ -274,6 +275,55 @@ COMMENT ON COLUMN teacher_payments.invoice_number IS 'Fatura numarası';
 COMMENT ON COLUMN teacher_payments.vendor IS 'Tedarikçi veya firma adı';
 COMMENT ON COLUMN teacher_payments.created_by IS 'Kaydı oluşturan kullanıcının ID si';
 
+-- ============================================
+-- NOTES TABLE (Notlar Sistemi)
+-- ============================================
+CREATE TABLE notes (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  color VARCHAR(20) DEFAULT '#FFE066',
+  category VARCHAR(100),
+  is_pinned BOOLEAN DEFAULT false,
+  is_encrypted BOOLEAN DEFAULT false,
+  created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE notes IS 'Şifreler ve önemli bilgileri saklamak için notlar sistemi';
+COMMENT ON COLUMN notes.color IS 'Not rengi (hex format)';
+COMMENT ON COLUMN notes.is_pinned IS 'Sabitlenmiş notlar en üstte gösterilir';
+COMMENT ON COLUMN notes.is_encrypted IS 'Gelecekte şifreleme özelliği için';
+COMMENT ON COLUMN notes.category IS 'Not kategorisi (Şifreler, Önemli Bilgiler, vb.)';
+
+-- ============================================
+-- TASKS TABLE (Görevler ve Hazırlıklar)
+-- ============================================
+CREATE TABLE tasks (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  task_type VARCHAR(20) NOT NULL CHECK (task_type IN ('task', 'preparation')),
+  category VARCHAR(100),
+  due_date DATE NOT NULL,
+  is_completed BOOLEAN DEFAULT false,
+  completed_at TIMESTAMP,
+  completed_by INTEGER REFERENCES users(id),
+  priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+  related_schedule_id INTEGER REFERENCES course_schedules(id) ON DELETE SET NULL,
+  related_event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE tasks IS 'Görevler ve yarının etkinlikleri için hazırlıklar';
+COMMENT ON COLUMN tasks.task_type IS 'task: Günlük görevler, preparation: Yarının etkinlikleri için hazırlıklar';
+COMMENT ON COLUMN tasks.category IS 'Görev kategorisi (Ders, Ödeme, Malzeme, Mekan, vb.)';
+COMMENT ON COLUMN tasks.priority IS 'Görev önceliği (low, medium, high)';
+COMMENT ON COLUMN tasks.related_schedule_id IS 'İlgili ders programı (hazırlıklar için)';
+COMMENT ON COLUMN tasks.related_event_id IS 'İlgili etkinlik (hazırlıklar için)';
 
 -- ============================================
 -- INDEXES (Performans için)
@@ -349,6 +399,19 @@ CREATE INDEX idx_teacher_payment_records_teacher_id ON teacher_payment_records(t
 CREATE INDEX idx_attendance_schedule_date ON attendance(schedule_id, attendance_date);
 CREATE INDEX idx_attendance_student_date ON attendance(student_id, attendance_date);
 CREATE INDEX idx_attendance_status ON attendance(status);
+
+-- Notes indexes
+CREATE INDEX idx_notes_created_by ON notes(created_by);
+CREATE INDEX idx_notes_category ON notes(category);
+CREATE INDEX idx_notes_is_pinned ON notes(is_pinned);
+CREATE INDEX idx_notes_created_at ON notes(created_at DESC);
+
+-- Tasks indexes
+CREATE INDEX idx_tasks_due_date ON tasks(due_date);
+CREATE INDEX idx_tasks_is_completed ON tasks(is_completed);
+CREATE INDEX idx_tasks_task_type ON tasks(task_type);
+CREATE INDEX idx_tasks_created_by ON tasks(created_by);
+CREATE INDEX idx_tasks_completed ON tasks(is_completed, due_date);
 
 -- ============================================
 -- MİGRATİON TAMAMLANDI
