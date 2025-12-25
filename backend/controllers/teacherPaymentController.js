@@ -27,7 +27,7 @@ export const calculateTeacherHours = async (req, res, next) => {
       SELECT 
         COUNT(DISTINCT cs.id) as total_classes,
         SUM(
-          EXTRACT(EPOCH FROM (cs.end_time - cs.start_time)) / 3600
+          ABS(EXTRACT(EPOCH FROM (cs.end_time - cs.start_time)) / 3600)
         ) as total_hours
       FROM course_schedules cs
       LEFT JOIN attendance a ON cs.id = a.schedule_id 

@@ -48,20 +48,22 @@ export const createAppointment = async (req, res, next) => {
         end_time,
         room,
         specific_date,
-        teacher_fee
+        teacher_fee,
+        notes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, TO_DATE($7, 'YYYY-MM-DD'), $8)
+      VALUES ($1, $2, $3, $4, $5, $6, TO_DATE($7, 'YYYY-MM-DD'), $8, $9)
       RETURNING id, course_id, teacher_id, day_of_week, start_time, end_time, room, 
-                specific_date::text as specific_date, teacher_fee, created_at, updated_at`,
+                specific_date::text as specific_date, teacher_fee, notes, created_at, updated_at`,
       [
         content_type === 'course' ? course_id : null,
         teacher_id || null,
         dayOfWeek,
         start_time,
         end_time,
-        `${content_type === 'appointment' ? 'RANDEVU' : content_type === 'workshop' ? 'WORKSHOP' : content_type === 'event' ? 'ETKİNLİK' : content_type.toUpperCase()}: ${student_name} ${student_surname}${notes ? ' - ' + notes : ''}`,
+        `${content_type === 'appointment' ? 'RANDEVU' : content_type === 'workshop' ? 'WORKSHOP' : content_type === 'event' ? 'ETKİNLİK' : content_type.toUpperCase()}: ${student_name} ${student_surname}`,
         date,
-        teacher_fee || 0
+        teacher_fee || 0,
+        notes || null
       ]
     );
 

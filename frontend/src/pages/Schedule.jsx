@@ -34,6 +34,8 @@ export default function Schedule() {
     notes: ''
   });
   const [expandedSchedule, setExpandedSchedule] = useState(null);
+  const [showItemDetailModal, setShowItemDetailModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
   
   // Get current week's Monday
   const getMonday = (date) => {
@@ -256,10 +258,134 @@ export default function Schedule() {
     setShowAppointmentModal(true);
   };
 
+  const openItemDetail = (item) => {
+    setSelectedItem(item);
+    setShowItemDetailModal(true);
+  };
+
+  const handleDeleteItem = async () => {
+    if (!selectedItem) return;
+    
+    if (!window.confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      if (selectedItem.type === 'lesson') {
+        await schedulesAPI.delete(selectedItem.id);
+      } else {
+        await eventsAPI.delete(selectedItem.id);
+      }
+      
+      setShowItemDetailModal(false);
+      setSelectedItem(null);
+      loadData();
+      
+      // Refresh day detail modal if it's open
+      if (showDayDetailModal && selectedDayData) {
+        const updatedSchedules = selectedDayData.schedules.filter(s => s.id !== selectedItem.id);
+        const updatedEvents = selectedDayData.events.filter(e => e.id !== selectedItem.id);
+        setSelectedDayData({
+          ...selectedDayData,
+          schedules: updatedSchedules,
+          events: updatedEvents
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Kayıt silinirken hata oluştu');
+    }
+  };
+
+  const handleEditItem = () => {
+    if (!selectedItem) return;
+    
+    // Only support editing lessons (appointments/workshops), not events
+    if (selectedItem.type === 'event') {
+      alert('Etkinlik düzenleme özelliği henüz desteklenmiyor');
+      return;
+    }
+    
+    // Extract student name from room field for appointments/workshops
+    let studentName = '';
+    let studentSurname = '';
+    let description = '';
+    
+    if (selectedItem.room && selectedItem.room.includes(':')) {
+      const roomParts = selectedItem.room.split(':');
+      const contentAfterColon = roomParts[1]?.trim() || '';
+      
+      if (contentAfterColon.includes('-')) {
+        const parts = contentAfterColon.split('-');
+        const fullName = parts[0]?.trim() || '';
+        description = parts[1]?.trim() || '';
+        
+        const nameParts = fullName.split(' ');
+        studentName = nameParts[0] || '';
+        studentSurname = nameParts.slice(1).join(' ') || '';
+      } else {
+        const nameParts = contentAfterColon.split(' ');
+        studentName = nameParts[0] || '';
+        studentSurname = nameParts.slice(1).join(' ') || '';
+      }
+    }
+    
+    // Determine content type from room
+    let contentType = 'appointment';
+    if (selectedItem.room?.startsWith('WORKSHOP:')) contentType = 'workshop';
+    else if (selectedItem.room?.startsWith('COURSE:')) contentType = 'course';
+    else if (selectedItem.room?.startsWith('EVENT:')) contentType = 'event';
+    
+    // Get date from specific_date
+    const dateString = selectedItem.specific_date?.split('T')[0] || '';
+    
+    // Populate appointment modal with existing data
+    setAppointmentData({
+      id: selectedItem.id, // Add ID for update
+      date: dateString,
+      start_time: selectedItem.start_time || '',
+      end_time: selectedItem.end_time || '',
+      student_name: studentName,
+      student_surname: studentSurname,
+      content_type: contentType,
+      course_id: selectedItem.course_id || '',
+      event_id: '',
+      teacher_id: selectedItem.teacher_id || '',
+      price: '0', // We don't have price info in schedule
+      is_free: true,
+      teacher_fee: selectedItem.teacher_fee || '',
+      notes: selectedItem.notes || description
+    });
+    
+    // Close detail modal and open appointment modal
+    setShowItemDetailModal(false);
+    setShowAppointmentModal(true);
+  };
+
+
   const handleAppointmentSubmit = async (e) => {
     e.preventDefault();
     try {
-      await appointmentsAPI.create(appointmentData);
+      const isEditing = !!appointmentData.id;
+      
+      if (isEditing) {
+        // Update existing schedule
+        await schedulesAPI.update(appointmentData.id, {
+          start_time: appointmentData.start_time,
+          end_time: appointmentData.end_time,
+          teacher_id: appointmentData.teacher_id,
+          teacher_fee: appointmentData.teacher_fee,
+          notes: appointmentData.notes,
+          room: `${appointmentData.content_type === 'appointment' ? 'RANDEVU' : appointmentData.content_type === 'workshop' ? 'WORKSHOP' : appointmentData.content_type === 'event' ? 'ETKİNLİK' : appointmentData.content_type.toUpperCase()}: ${appointmentData.student_name} ${appointmentData.student_surname}`
+        });
+        
+        alert('Randevu başarıyla güncellendi!');
+      } else {
+        // Create new appointment
+        await appointmentsAPI.create(appointmentData);
+        
+        alert(appointmentData.is_free 
+          ? 'Ücretsiz randevu başarıyla oluşturuldu!' 
+          : 'Randevu oluşturuldu ve ödeme planı kaydedildi!');
+      }
       
       setShowAppointmentModal(false);
       setAppointmentData({
@@ -278,15 +404,12 @@ export default function Schedule() {
         notes: ''
       });
       
-      // Reload data to show new appointment
+      // Reload data
       loadData();
       
-      alert(appointmentData.is_free 
-        ? 'Ücretsiz randevu başarıyla oluşturuldu!' 
-        : 'Randevu oluşturuldu ve ödeme planı kaydedildi!');
     } catch (error) {
-      console.error('Error creating appointment:', error);
-      alert(error.response?.data?.error || 'Randevu oluşturulurken hata oluştu');
+      console.error('Error saving appointment:', error);
+      alert(error.response?.data?.error || 'Randevu kaydedilirken hata oluştu');
     }
   };
 
@@ -384,7 +507,7 @@ export default function Schedule() {
                 style={{ cursor: 'pointer' }}
                 title="Detaylı görünüm için tıklayın"
               >
-                {dayName}
+                {dayName} <span style={{ fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--primary)', background: 'var(--primary-50)', padding: '4px 8px', borderRadius: 'var(--radius-md)', marginLeft: '8px' }}>{daySchedules.length + dayEvents.length}</span>
                 <div style={{ fontSize: '0.875rem', fontWeight: 'normal', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   {date.getDate()} {date.toLocaleDateString('tr-TR', { month: 'long' })}
                   {isToday && <span style={{ marginLeft: '8px', color: 'var(--primary)', fontWeight: 'bold' }}>• Bugün</span>}
@@ -395,7 +518,9 @@ export default function Schedule() {
                 {daySchedules.length > 0 && daySchedules.map((schedule) => {
                   // Determine schedule type for color coding
                   let scheduleType = 'group'; // default
-                  if (schedule.room && schedule.room.startsWith('RANDEVU:')) {
+                  if (schedule.room && schedule.room.startsWith('WORKSHOP:')) {
+                    scheduleType = 'workshop';
+                  } else if (schedule.room && schedule.room.startsWith('RANDEVU:')) {
                     scheduleType = 'appointment';
                   } else if (schedule.course_type === 'individual' || schedule.course_type === 'birebir') {
                     scheduleType = 'individual';
@@ -418,8 +543,17 @@ export default function Schedule() {
                             ))
                           ) : (
                             <span className="text-secondary text-sm">
-                              {schedule.room && schedule.room.startsWith('RANDEVU:') 
-                                ? schedule.room.replace('RANDEVU: ', '📅 ') 
+                              {schedule.room && schedule.room.includes(':') 
+                                ? (() => {
+                                    const roomParts = schedule.room.split(':');
+                                    const contentAfterColon = roomParts[1]?.trim() || '';
+                                    const studentName = contentAfterColon.split('-')[0]?.trim() || contentAfterColon;
+                                    const prefix = schedule.room.startsWith('WORKSHOP') ? '🎨 '
+                                      : schedule.room.startsWith('RANDEVU') ? '📅 '
+                                      : schedule.room.startsWith('COURSE') ? '📚 '
+                                      : schedule.room.startsWith('EVENT') ? '🎉 ' : '';
+                                    return prefix + studentName;
+                                  })()
                                 : 'Öğrenci yok'}
                             </span>
                           )}
@@ -440,7 +574,14 @@ export default function Schedule() {
                       <div className="schedule-item-expanded">
                         <div className="expanded-row">
                           <span className="expanded-label">Ders:</span>
-                          <span className="expanded-value">{schedule.course_name || 'Randevu'}</span>
+                          <span className="expanded-value">
+                            {schedule.course_name || 
+                             (schedule.room && schedule.room.startsWith('WORKSHOP:') ? 'Workshop' :
+                              schedule.room && schedule.room.startsWith('RANDEVU:') ? 'Randevu' :
+                              schedule.room && schedule.room.startsWith('COURSE:') ? 'Özel Ders' :
+                              schedule.room && schedule.room.startsWith('EVENT:') ? 'Etkinlik' :
+                              'Randevu')}
+                          </span>
                         </div>
                         <div className="expanded-row">
                           <span className="expanded-label">Öğretmen:</span>
@@ -448,17 +589,25 @@ export default function Schedule() {
                             {schedule.teacher_first_name} {schedule.teacher_last_name}
                           </span>
                         </div>
-                        {schedule.room && (
-                          <div className="expanded-row">
-                            <span className="expanded-label">Oda:</span>
-                            <span className="expanded-value">{schedule.room}</span>
-                          </div>
-                        )}
+
                         {schedule.course_type && (
                           <div className="expanded-row">
                             <span className="expanded-label">Ders Türü:</span>
                             <span className={`badge badge-${schedule.course_type === 'group' ? 'info' : 'success'}`}>
                               {schedule.course_type === 'group' ? 'Grup' : 'Birebir'}
+                            </span>
+                          </div>
+                        )}
+                        {(schedule.notes || (schedule.room && schedule.room.includes('-'))) && (
+                          <div className="expanded-row">
+                            <span className="expanded-label">Açıklama:</span>
+                            <span className="expanded-value">
+                              {schedule.notes || (() => {
+                                const roomParts = schedule.room.split(':');
+                                const contentAfterColon = roomParts[1]?.trim() || '';
+                                const descriptionPart = contentAfterColon.split('-')[1]?.trim();
+                                return descriptionPart || '';
+                              })()}
                             </span>
                           </div>
                         )}
@@ -731,6 +880,11 @@ export default function Schedule() {
                             bgColor = '#f3e8ff';
                             borderColor = '#9333ea';
                             textColor = '#9333ea';
+                          } else if (item.room && item.room.startsWith('WORKSHOP:')) {
+                            // Workshops - Purple/Magenta
+                            bgColor = '#fdf4ff';
+                            borderColor = '#c026d3';
+                            textColor = '#c026d3';
                           } else if (item.room && item.room.startsWith('RANDEVU:')) {
                             // Appointments - Orange
                             bgColor = '#fff7ed';
@@ -751,13 +905,24 @@ export default function Schedule() {
                           return (
                           <div 
                             key={idx}
+                            onClick={() => openItemDetail(item)}
                             style={{
                               padding: 'var(--space-2)',
                               borderRadius: 'var(--radius-md)',
                               background: bgColor,
                               borderLeft: `4px solid ${borderColor}`,
                               fontSize: '0.8125rem',
-                              minHeight: '80px'
+                              minHeight: '80px',
+                              cursor: 'pointer',
+                              transition: 'all var(--transition-fast)'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'none';
                             }}
                           >
                             <div style={{ fontWeight: 'bold', marginBottom: 'var(--space-1)', color: textColor, fontSize: '0.75rem' }}>
@@ -765,37 +930,58 @@ export default function Schedule() {
                             </div>
                             {item.type === 'lesson' ? (
                               <>
-                                <div style={{ fontWeight: '600', fontSize: '0.8125rem' }}>{item.course_name}</div>
+                                <div style={{ fontWeight: '600', fontSize: '0.8125rem' }}>
+                                  {item.course_name || (() => {
+                                    if (item.room && item.room.startsWith('WORKSHOP:')) return '🎨 Workshop';
+                                    if (item.room && item.room.startsWith('RANDEVU:')) return '📅 Randevu';
+                                    if (item.room && item.room.startsWith('COURSE:')) return '📚 Özel Ders';
+                                    if (item.room && item.room.startsWith('EVENT:')) return '🎉 Etkinlik';
+                                    return 'Randevu';
+                                  })()}
+                                </div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                   {item.teacher_first_name} {item.teacher_last_name}
                                 </div>
-                                {item.students && item.students.length > 0 && (
+                                {item.students && item.students.length > 0 ? (
                                   <div style={{ marginTop: 'var(--space-1)', fontSize: '0.75rem' }}>
                                     👥 {item.students.map(s => `${s.first_name} ${s.last_name}`).join(', ')}
                                   </div>
-                                )}
-                                {item.room && (
-                                  <div style={{ marginTop: 'var(--space-1)', fontSize: '0.75rem' }}>
-                                    📍 {item.room}
+                                ) : (
+                                  <div style={{ marginTop: 'var(--space-1)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    {(() => {
+                                      if (item.notes) {
+                                        return `💬 ${item.notes}`;
+                                      }
+                                      if (item.room && item.room.includes('-')) {
+                                        const roomParts = item.room.split(':');
+                                        const contentAfterColon = roomParts[1]?.trim() || '';
+                                        const descriptionPart = contentAfterColon.split('-')[1]?.trim();
+                                        if (descriptionPart) return `💬 ${descriptionPart}`;
+                                      }
+                                      if (item.room && item.room.includes(':')) {
+                                        const roomParts = item.room.split(':');
+                                        const contentAfterColon = roomParts[1]?.trim() || '';
+                                        const participantName = contentAfterColon.split('-')[0]?.trim();
+                                        if (participantName) return `👤 ${participantName}`;
+                                      }
+                                      return '';
+                                    })()}
                                   </div>
                                 )}
                               </>
                             ) : (
                               <>
                                 <div style={{ fontWeight: '600', fontSize: '0.8125rem' }}>🎨 {item.name}</div>
-                                {item.description && (
-                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                    {item.description}
-                                  </div>
-                                )}
                                 {item.teacher_first_name && (
-                                  <div style={{ fontSize: '0.75rem', marginTop: 'var(--space-1)' }}>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                     👤 {item.teacher_first_name} {item.teacher_last_name}
                                   </div>
                                 )}
-                                <div style={{ fontSize: '0.75rem', marginTop: 'var(--space-1)' }}>
-                                  💰 {item.price}₺
-                                </div>
+                                {item.description && (
+                                  <div style={{ marginTop: 'var(--space-1)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                    💬 {item.description}
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
@@ -830,7 +1016,7 @@ export default function Schedule() {
       {showAppointmentModal && (
         <div className="modal-overlay" onClick={() => setShowAppointmentModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <h2 className="modal-title">Yeni Randevu Oluştur</h2>
+            <h2 className="modal-title">{appointmentData.id ? 'Randevu Düzenle' : 'Yeni Randevu Oluştur'}</h2>
             <form onSubmit={handleAppointmentSubmit}>
               {/* Date and Time */}
               <div className="form-row">
@@ -1018,10 +1204,161 @@ export default function Schedule() {
                   İptal
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Randevu Oluştur
+                  {appointmentData.id ? 'Güncelle' : 'Randevu Oluştur'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Item Detail Modal */}
+      {showItemDetailModal && selectedItem && (
+        <div className="modal-overlay" onClick={() => setShowItemDetailModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <h2 className="modal-title">
+              {selectedItem.type === 'lesson' ? '📚 Ders Detayı' : '🎨 Etkinlik Detayı'}
+            </h2>
+            
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              {selectedItem.type === 'lesson' ? (
+                <>
+                  <div className="expanded-row">
+                    <span className="expanded-label">Saat:</span>
+                    <span className="expanded-value">
+                      {selectedItem.start_time?.slice(0, 5)} - {selectedItem.end_time?.slice(0, 5)}
+                    </span>
+                  </div>
+                  
+                  <div className="expanded-row">
+                    <span className="expanded-label">Ders:</span>
+                    <span className="expanded-value">
+                      {selectedItem.course_name || 
+                       (selectedItem.room && selectedItem.room.startsWith('WORKSHOP:') ? 'Workshop' :
+                        selectedItem.room && selectedItem.room.startsWith('RANDEVU:') ? 'Randevu' :
+                        selectedItem.room && selectedItem.room.startsWith('COURSE:') ? 'Özel Ders' :
+                        selectedItem.room && selectedItem.room.startsWith('EVENT:') ? 'Etkinlik' :
+                        'Randevu')}
+                    </span>
+                  </div>
+                  
+                  {selectedItem.teacher_first_name && (
+                    <div className="expanded-row">
+                      <span className="expanded-label">Öğretmen:</span>
+                      <span className="expanded-value">
+                        {selectedItem.teacher_first_name} {selectedItem.teacher_last_name}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {selectedItem.students && selectedItem.students.length > 0 && (
+                    <div className="expanded-row">
+                      <span className="expanded-label">Öğrenciler:</span>
+                      <span className="expanded-value">
+                        {selectedItem.students.map(s => `${s.first_name} ${s.last_name}`).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {!selectedItem.students?.length && selectedItem.room && (
+                    <div className="expanded-row">
+                      <span className="expanded-label">Katılımcı:</span>
+                      <span className="expanded-value">
+                        {(() => {
+                          const roomParts = selectedItem.room.split(':');
+                          const contentAfterColon = roomParts[1]?.trim() || '';
+                          return contentAfterColon.split('-')[0]?.trim() || contentAfterColon;
+                        })()}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {selectedItem.course_type && (
+                    <div className="expanded-row">
+                      <span className="expanded-label">Ders Türü:</span>
+                      <span className={`badge badge-${selectedItem.course_type === 'group' ? 'info' : 'success'}`}>
+                        {selectedItem.course_type === 'group' ? 'Grup' : 'Birebir'}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {(selectedItem.notes || (selectedItem.room && selectedItem.room.includes('-'))) && (
+                    <div className="expanded-row">
+                      <span className="expanded-label">Açıklama:</span>
+                      <span className="expanded-value">
+                        {selectedItem.notes || (() => {
+                          const roomParts = selectedItem.room.split(':');
+                          const contentAfterColon = roomParts[1]?.trim() || '';
+                          const descriptionPart = contentAfterColon.split('-')[1]?.trim();
+                          return descriptionPart || '';
+                        })()}
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="expanded-row">
+                    <span className="expanded-label">Saat:</span>
+                    <span className="expanded-value">
+                      {selectedItem.start_time?.slice(0, 5)} - {selectedItem.end_time?.slice(0, 5)}
+                    </span>
+                  </div>
+                  
+                  <div className="expanded-row">
+                    <span className="expanded-label">Etkinlik Adı:</span>
+                    <span className="expanded-value">{selectedItem.name}</span>
+                  </div>
+                  
+                  {selectedItem.description && (
+                    <div className="expanded-row">
+                      <span className="expanded-label">Açıklama:</span>
+                      <span className="expanded-value">{selectedItem.description}</span>
+                    </div>
+                  )}
+                  
+                  {selectedItem.teacher_first_name && (
+                    <div className="expanded-row">
+                      <span className="expanded-label">Öğretmen:</span>
+                      <span className="expanded-value">
+                        {selectedItem.teacher_first_name} {selectedItem.teacher_last_name}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="expanded-row">
+                    <span className="expanded-label">Ücret:</span>
+                    <span className="expanded-value">{selectedItem.price}₺</span>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="modal-actions" style={{ marginTop: 'var(--space-4)', gap: 'var(--space-2)' }}>
+              <button 
+                onClick={() => setShowItemDetailModal(false)} 
+                className="btn btn-secondary"
+              >
+                Kapat
+              </button>
+              {isAdmin() && (
+                <>
+                  <button 
+                    onClick={handleDeleteItem}
+                    className="btn btn-danger"
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    🗑️ Sil
+                  </button>
+                  <button 
+                    onClick={handleEditItem}
+                    className="btn btn-primary"
+                  >
+                    ✏️ Düzenle
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

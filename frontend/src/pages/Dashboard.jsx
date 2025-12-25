@@ -451,21 +451,21 @@ export default function Dashboard() {
       <div className="quick-actions">
         <h2 className="section-title">Hızlı İşlemler</h2>
         <div className="actions-grid">
-          <a href="/students" className="action-card">
-            <span className="action-icon">➕</span>
-            <span className="action-label">Yeni Öğrenci Ekle</span>
+          <a href="/notes" className="action-card">
+            <span className="action-icon">📝</span>
+            <span className="action-label">Notlar</span>
           </a>
           <a href="/schedule" className="action-card">
             <span className="action-icon">📅</span>
-            <span className="action-label">Yeni Ders Planla</span>
+            <span className="action-label">Ders Planla</span>
           </a>
           <a href="/payments" className="action-card">
             <span className="action-icon">💳</span>
             <span className="action-label">Ödeme Kaydet</span>
           </a>
-          <a href="/courses" className="action-card">
-            <span className="action-icon">📖</span>
-            <span className="action-label">Ders Ekle</span>
+          <a href="/students" className="action-card">
+            <span className="action-icon">➕</span>
+            <span className="action-label">Öğrenci Ekle</span>
           </a>
         </div>
       </div>

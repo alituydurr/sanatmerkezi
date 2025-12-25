@@ -1,7 +1,7 @@
 /* Manager Portal Wrapper */
 .manager-portal-wrapper {
   min-height: 100vh;
-  background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+  background: linear-gradient(135deg, #f5f3e8 0%, #e8e4d0 100%);
   position: relative;
 }
 
@@ -24,7 +24,7 @@
 .manager-header-title h1 {
   font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+  background: linear-gradient(135deg, #d4cdb3 0%, #c4b89a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -40,7 +40,7 @@
 .manager-header-title .compliment {
   font-size: 0.875rem;
   font-style: italic;
-  background: linear-gradient(135deg, #d4a5a5 0%, #e8c4c4 100%);
+  background: linear-gradient(135deg, #c4b89a 0%, #d4cdb3 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -88,7 +88,7 @@
   display: block;
   height: 3px;
   width: 100%;
-  background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+  background: linear-gradient(135deg, #d4cdb3 0%, #c4b89a 100%);
   border-radius: 2px;
   transition: all 0.3s ease;
 }
@@ -107,7 +107,7 @@
 
 /* Logout Button */
 .logout-btn {
-  background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+  background: linear-gradient(135deg, #d4cdb3 0%, #c4b89a 100%);
   color: white;
   border: none;
   border-radius: var(--radius-md);
@@ -145,7 +145,7 @@
 
 .manager-sidebar-header {
   padding: var(--space-4);
-  background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+  background: linear-gradient(135deg, #d4cdb3 0%, #c4b89a 100%);
   color: white;
   display: flex;
   justify-content: space-between;
@@ -205,7 +205,7 @@
   top: 0;
   height: 100%;
   width: 4px;
-  background: linear-gradient(135deg, #d4a5a5 0%, #e8c4c4 100%);
+  background: linear-gradient(135deg, #c4b89a 0%, #d4cdb3 100%);
   transform: scaleY(0);
   transition: transform 0.2s;
 }
@@ -220,14 +220,14 @@
 }
 
 .manager-sidebar-item.active {
-  background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+  background: linear-gradient(135deg, #d4cdb3 0%, #c4b89a 100%);
   color: white;
   box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
 }
 
 .manager-sidebar-item.active::before {
   transform: scaleY(1);
-  background: #d4a5a5;
+  background: #c4b89a;
 }
 
 .manager-sidebar-icon {
@@ -251,7 +251,7 @@
 .manager-sidebar-logout {
   width: 100%;
   padding: var(--space-3);
-  background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+  background: linear-gradient(135deg, #d4cdb3 0%, #c4b89a 100%);
   color: white;
   border: none;
   border-radius: var(--radius-lg);
@@ -301,7 +301,7 @@
 /* Desktop View - NO PERMANENT SIDEBAR */
 @media (min-width: 769px) {
   .manager-portal-wrapper {
-    background: linear-gradient(135deg, #722f37 0%, #a0475e 100%);
+    background: linear-gradient(135deg, #f5f3e8 0%, #e8e4d0 100%);
   }
 
   .manager-header {

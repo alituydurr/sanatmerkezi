@@ -115,7 +115,7 @@ export default function TeacherPayments() {
       });
       loadData();
       
-      alert('Öğretmen ödemesi başarıyla oluşturuldu!');
+      alert('Öğretmen ödemesi başarıyla hesaplandı! (Eğer bu ay için daha önce hesaplama yapıldıysa, güncellendi.)');
     } catch (error) {
       console.error('Error calculating payment:', error);
       alert('Ödeme hesaplanırken hata oluştu');
@@ -249,7 +249,7 @@ export default function TeacherPayments() {
             className="form-input"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            style={{ width: '160px', padding: '0.6rem' }}
+            style={{ width: '200px', padding: '0.6rem' }}
           />
           <input
             type="text"

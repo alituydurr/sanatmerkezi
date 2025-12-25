@@ -37,7 +37,7 @@ export const getAllSchedules = async (req, res, next) => {
         LEFT JOIN students s_individual ON cs.student_id = s_individual.id
         LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.status = 'active' AND cs.student_id IS NULL
         LEFT JOIN students s ON sc.student_id = s.id
-        GROUP BY cs.id, c.id, t.id
+        GROUP BY cs.id, c.id, t.id, cs.notes
         ORDER BY cs.day_of_week, cs.start_time
       `;
     } else {
@@ -73,7 +73,7 @@ export const getAllSchedules = async (req, res, next) => {
         LEFT JOIN student_courses sc ON c.id = sc.course_id AND sc.status = 'active' AND cs.student_id IS NULL
         LEFT JOIN students s ON sc.student_id = s.id
         WHERE t.user_id = $1
-        GROUP BY cs.id, c.id, t.id
+        GROUP BY cs.id, c.id, t.id, cs.notes
         ORDER BY cs.day_of_week, cs.start_time
       `;
       params = [req.user.id];

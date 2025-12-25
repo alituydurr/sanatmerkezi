@@ -93,11 +93,25 @@ const Tasks = () => {
         return today >= eventStartDate && today <= eventEndDate;
       });
 
-      // Filter tomorrow's schedules (lessons, workshops, appointments)
+      // Filter tomorrow's schedules - ONLY special items (appointments, workshops, events)
+      // Exclude regular lessons
       const tomorrowSchedules = schedules.filter(s => {
         if (!s.specific_date) return false;
         const scheduleDate = s.specific_date.split('T')[0];
-        return scheduleDate === tomorrowStr;
+        if (scheduleDate !== tomorrowStr) return false;
+        
+        // Only include if it's NOT a regular lesson
+        // Check if it's a special type based on room field
+        if (s.room && (
+          s.room.startsWith('RANDEVU:') ||
+          s.room.startsWith('WORKSHOP:') ||
+          s.room.startsWith('EVENT:')
+        )) {
+          return true;
+        }
+        
+        // Exclude regular lessons (those with students enrolled)
+        return false;
       });
 
       // Filter tomorrow's events
@@ -489,7 +503,7 @@ const Tasks = () => {
               ...dashboardTasks.tomorrowEvents.map((item, idx) => {
                 const isEvent = item.event_type !== undefined;
                 const isAppointment = item.room && item.room.startsWith('RANDEVU:');
-                const isWorkshop = item.course_name && item.course_name.includes('WORKSHOP');
+                const isWorkshop = item.room && item.room.startsWith('WORKSHOP:');
                 return {
                   type: 'dashboardPrep',
                   data: item,
@@ -512,20 +526,40 @@ const Tasks = () => {
               .map(({ type, data, key, isCompleted, isEvent, isAppointment, isWorkshop }) => {
                 // Dashboard Hazırlık
                 if (type === 'dashboardPrep') {
+                  // Determine preparation message based on type
+                  let prepTitle = '';
+                  let prepMessage = '';
+                  let prepIcon = '';
+                  
+                  if (isEvent) {
+                    prepIcon = '🎨';
+                    prepTitle = `${data.name} - Etkinlik Hazırlığı`;
+                    prepMessage = 'Katılımcıları ve öğretmenleri teyit et, malzemeleri hazırla, mekan kontrolü yap';
+                  } else if (isAppointment) {
+                    prepIcon = '📅';
+                    const participantName = data.room ? data.room.replace('RANDEVU: ', '') : 'Randevu';
+                    prepTitle = `${participantName} - Randevu`;
+                    prepMessage = 'Katılım durumunu teyit et';
+                  } else if (isWorkshop) {
+                    prepIcon = '🎨';
+                    const workshopName = data.room ? data.room.replace('WORKSHOP: ', '') : 'Workshop';
+                    prepTitle = `${workshopName} - Workshop`;
+                    prepMessage = 'Katılımcıları ve öğretmenleri teyit et, malzemeleri hazırla';
+                  } else {
+                    // This shouldn't happen anymore since we filter regular lessons
+                    prepIcon = '📚';
+                    prepTitle = `${data.course_name || 'Ders'}`;
+                    prepMessage = 'Ders için hazırlık yapılması gerekiyor';
+                  }
+                  
                   return (
                     <div key={key} className={`task-item ${isCompleted ? 'completed' : ''}`}>
                       <div className="task-content">
                         <div className="task-title">
-                          {isEvent && `🎨 ${data.name} - Etkinlik Hazırlığı`}
-                          {isAppointment && `📅 ${data.room} - Randevu Hazırlığı`}
-                          {isWorkshop && `🎨 ${data.course_name} - Workshop Hazırlığı`}
-                          {!isEvent && !isAppointment && !isWorkshop && `📚 ${data.course_name || 'Ders'} - Ders Hazırlığı`}
+                          {prepIcon} {prepTitle}
                         </div>
                         <div className="task-description">
-                          {isEvent && 'Malzeme ve mekan kontrolü yapılması gerekiyor'}
-                          {isAppointment && 'Randevu için hazırlık yapılması gerekiyor'}
-                          {isWorkshop && 'Workshop malzemeleri ve mekan kontrolü'}
-                          {!isEvent && !isAppointment && !isWorkshop && 'Ders için hazırlık yapılması gerekiyor'}
+                          {prepMessage}
                         </div>
                         <div className="task-meta">
                           <span className="task-badge">

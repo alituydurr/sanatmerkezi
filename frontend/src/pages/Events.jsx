@@ -139,7 +139,7 @@ export default function Events() {
             className="form-input"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            style={{ width: '200px' }}
+            style={{ width: '200px', padding: '0.6rem' }}
           />
           <input
             type="text"

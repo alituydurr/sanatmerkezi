@@ -266,7 +266,7 @@ export default function FinancialReports() {
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="form-input"
-            style={{ width: '200px' }}
+            style={{ width: '200px', padding: '0.6rem' }}
           />
           {activeTab === 'report' && (
             <>

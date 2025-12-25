@@ -10,7 +10,7 @@
   padding: var(--space-4);
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
-  height: 480px; /* Fixed compact height */
+  height: 420px; /* Compact height for 5 lessons */
   display: flex;
   flex-direction: column;
 }
@@ -34,10 +34,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  height: 360px; /* Fixed height to show ~4 activities */
-  overflow-y: auto; /* Scroll if needed */
+  max-height: 300px; /* Show ~5 lessons (60px each) */
+  overflow-y: auto; /* Enable scroll */
+  overflow-x: hidden;
   padding-right: var(--space-2);
-  flex: 1; /* Take remaining space */
 }
 
 /* Custom scrollbar styling */
@@ -66,6 +66,8 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   transition: all var(--transition-fast);
+  min-height: 60px; /* Compact height */
+  flex-shrink: 0; /* Don't shrink */
 }
 
 .schedule-item-wrapper:hover {
@@ -78,6 +80,7 @@
   align-items: center;
   padding: var(--space-3);
   gap: var(--space-2);
+  min-height: 60px; /* Match wrapper height */
 }
 
 .schedule-compact-left {
@@ -184,6 +187,15 @@
 
 .schedule-item-wrapper.appointment .schedule-item-compact {
   background: #fff7ed;
+}
+
+/* Workshop - Purple/Magenta */
+.schedule-item-wrapper.workshop {
+  border-left-color: #c026d3 !important;
+}
+
+.schedule-item-wrapper.workshop .schedule-item-compact {
+  background: #fdf4ff;
 }
 
 /* Event - Purple */
