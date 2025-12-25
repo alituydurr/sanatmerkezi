@@ -268,7 +268,7 @@ export default function Dashboard() {
             Sanat Merkezi Yönetim Paneline Hoş Geldiniz
           </h1>
           <p className="dashboard-subtitle">
-            Merhaba, {user?.full_name} 👋
+            Merhaba, ÜnzileArt 👋 Bugün keyifli geçecek gibi!
           </p>
         </div>
       </div>
